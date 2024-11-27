@@ -6,11 +6,12 @@ import (
 	"kambing-cup-backend/service"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
-func User() http.Handler {
+func User(conn *pgx.Conn) http.Handler {
 	r := chi.NewRouter()
-	s := service.NewUserService()
+	s := service.NewUserService(conn)
 
 	r.Get("/", s.ListUser)
 
