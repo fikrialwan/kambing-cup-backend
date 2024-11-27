@@ -18,6 +18,7 @@ func SetupRouter(conn *pgx.Conn) *chi.Mux {
 	})
 
 	r.Mount("/user", router.User(conn))
+	r.Mount("/auth", router.Auth(conn))
 
 	return r
 }

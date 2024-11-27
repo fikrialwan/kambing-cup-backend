@@ -35,3 +35,9 @@ func (u *UserRepository) GetAll() ([]model.User, error) {
 
 	return users, err
 }
+
+func (u *UserRepository) GetByUsernamePassword(username string, password string) (model.User, error) {
+	var user model.User
+	err := u.conn.QueryRow(context.Background(), "SELECT * FROM users WHERE username = $1 AND password = $2", username, password).Scan(&user.ID, &user.Username, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	return user, err
+}
