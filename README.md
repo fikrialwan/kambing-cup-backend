@@ -21,7 +21,7 @@ Live website: [Kambing Cup Livescore](https://kambing-cup-livescore-v2.vercel.ap
 - **Language:** Golang
 - **Database:** PostgreSQL 
 - **Framework:** Chi
-- **ORM:** Gorm
+- **Database Driver:** pgx
 
 ## Installation
 
