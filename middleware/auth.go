@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -48,7 +49,7 @@ func Auth(next http.Handler) http.Handler {
 
 		claims := jwtToken.Claims.(jwt.MapClaims)
 
-		r.Header.Set("x-user-id", fmt.Sprintf("%f", claims["sub"].(float64)))
+		r.Header.Set("x-user-id", strconv.Itoa(int(claims["sub"].(float64))))
 		r.Header.Set("x-user-exp", fmt.Sprintf("%f", claims["exp"].(float64)))
 		r.Header.Set("x-user-role", claims["role"].(string))
 

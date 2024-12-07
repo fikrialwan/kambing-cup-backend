@@ -4,22 +4,19 @@ import (
 	"encoding/json"
 	"kambing-cup-backend/repository"
 	"net/http"
-
-	"github.com/jackc/pgx/v5"
+	"strconv"
 )
 
 type UserService struct {
-	conn *pgx.Conn
+	userRepo *repository.UserRepository
 }
 
-func NewUserService(conn *pgx.Conn) *UserService {
-	return &UserService{conn: conn}
+func NewUserService(userRepo repository.UserRepository) *UserService {
+	return &UserService{userRepo: &userRepo}
 }
 
 func (s *UserService) ListUser(w http.ResponseWriter, _ *http.Request) {
-	repository := repository.NewUserRepository(s.conn)
-
-	users, err := repository.GetAll()
+	users, err := s.userRepo.GetAll()
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -29,6 +26,30 @@ func (s *UserService) ListUser(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(users); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *UserService) GetUser(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("x-user-id")
+	id, err := strconv.Atoi(userID)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	user, err := s.userRepo.GetById(id)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

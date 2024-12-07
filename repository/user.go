@@ -41,3 +41,9 @@ func (u *UserRepository) GetByUsernamePassword(username string, password string)
 	err := u.conn.QueryRow(context.Background(), "SELECT * FROM users WHERE username = $1 AND password = $2", username, password).Scan(&user.ID, &user.Username, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
 	return user, err
 }
+
+func (u *UserRepository) GetById(id int) (model.User, error) {
+	var user model.User
+	err := u.conn.QueryRow(context.Background(), "SELECT * FROM users WHERE id = $1", id).Scan(&user.ID, &user.Username, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	return user, err
+}
