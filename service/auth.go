@@ -68,8 +68,9 @@ func generateToken(user model.User) (s string, expIn int64, err error) {
 	expIn = time.Now().Add(time.Hour * 24).Unix()
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
-			"sub": user.ID,
-			"exp": expIn,
+			"sub":  user.ID,
+			"role": user.Role,
+			"exp":  expIn,
 		})
 
 	if s, err = t.SignedString([]byte(os.Getenv("SECRET"))); err != nil {
