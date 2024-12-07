@@ -20,6 +20,7 @@ func Tournament(conn *pgx.Conn) http.Handler {
 	r.Use(middleware.AdminAuth)
 
 	r.Get("/", ts.GetAll)
+	r.Post("/", ts.Create)
 
 	return r
 }
