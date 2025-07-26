@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"kambing-cup-backend/config"
 	"log"
 	"net/http"
 	"os"
@@ -26,24 +27,11 @@ func main() {
 
 	fmt.Println("Connected to database")
 
-	setupStorage()
+	config.SetupStorage()
 
-	r := SetupRouter(conn)
+	r := config.SetupRouter(conn)
 
 	fmt.Println("Listening on port 8080")
 
 	http.ListenAndServe(":8080", r)
-}
-
-func setupStorage() {
-	_, err := os.Stat("./storage")
-	if err != nil {
-		if os.IsNotExist(err) {
-			err := os.Mkdir("storage", 0755)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-		}
-		log.Fatal(err.Error())
-	}
 }

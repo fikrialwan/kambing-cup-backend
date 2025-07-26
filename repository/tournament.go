@@ -42,3 +42,26 @@ func (T *TournamentRepository) Create(tournament model.Tournament) error {
 
 	return err
 }
+
+func (T *TournamentRepository) Update(tournament model.Tournament) error {
+	if tournament.ImageUrl == "" {
+		_, err := T.conn.Exec(context.Background(), "UPDATE tournaments SET name = $1, slug = $2, is_show = $3, is_active = $4, updated_at = $5 WHERE id = $6", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, time.Now(), tournament.ID)
+		return err
+	}
+
+	_, err := T.conn.Exec(context.Background(), "UPDATE tournaments SET name = $1, slug = $2, is_show = $3, is_active = $4, image_url = $5, updated_at = $6 WHERE id = $7", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, time.Now(), tournament.ID)
+
+	return err
+}
+
+func (T *TournamentRepository) Delete(id int) error {
+	_, err := T.conn.Exec(context.Background(), "UPDATE tournaments SET deleted_at = $1 WHERE id = $2", time.Now(), id)
+
+	return err
+}
+
+func (T *TournamentRepository) GetBySlug(slug string) (model.Tournament, error) {
+	var tournament model.Tournament
+	err := T.conn.QueryRow(context.Background(), "SELECT * FROM tournaments WHERE slug = $1 AND deleted_at IS NULL", slug).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
+	return tournament, err
+}

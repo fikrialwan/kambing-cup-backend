@@ -1,7 +1,6 @@
 package router
 
 import (
-	"kambing-cup-backend/middleware"
 	"kambing-cup-backend/repository"
 	"kambing-cup-backend/service"
 	"net/http"
@@ -10,19 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func Tournament(conn *pgx.Conn) http.Handler {
+func Public(conn *pgx.Conn) http.Handler {
 	r := chi.NewRouter()
 
 	tr := repository.NewTournamentRepository(conn)
 	ts := service.NewTournamentService(*tr)
 
-	r.Use(middleware.Auth)
-	r.Use(middleware.AdminAuth)
-
-	r.Get("/", ts.GetAll)
-	r.Post("/", ts.Create)
-	r.Put("/{id}", ts.Update)
-	r.Delete("/{id}", ts.Delete)
+	r.Get("/tournament/{slug}", ts.Get)
 
 	return r
 }
