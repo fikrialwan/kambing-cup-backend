@@ -22,6 +22,7 @@ func SetupRouter(conn *pgx.Conn) *chi.Mux {
 	r.Mount("/tournament", router.Tournament(conn))
 	r.Mount("/sport", router.Sport(conn))
 	r.Mount("/team", router.Team(conn))
+	r.Mount("/match", router.Match(conn))
 	r.Mount("/public", router.Public(conn))
 
 	fs := http.FileServer(http.Dir("./storage"))
