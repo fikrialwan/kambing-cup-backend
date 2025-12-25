@@ -2,7 +2,7 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build-and-push:
@@ -24,30 +24,31 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/my-go-app:latest
 
-  # deploy:
-  #   needs: build-and-push
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: SSH and Deploy
-  #       uses: appleboy/ssh-action@v1.0.3
-  #       with:
-  #         host: ${{ secrets.SERVER_HOST }}
-  #         username: ${{ secrets.SERVER_USER }}
-  #         key: ${{ secrets.SSH_PRIVATE_KEY }}
-  #         script: |
-  #           # Pull the latest image
-  #           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-go-app:latest
-            
-  #           # Stop and remove existing container if it exists
-  #           docker stop my-go-app || true
-  #           docker rm my-go-app || true
-            
-  #           # Run the new container
-  #           docker run -d \
-  #             --name my-go-app \
-  #             --restart unless-stopped \
-  #             -p 8080:8080 \
-  #             ${{ secrets.DOCKERHUB_USERNAME }}/my-go-app:latest
-            
-  #           # Prune old images to save disk space
-  #           docker image prune -f
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Pull the latest image
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-go-app:latest
+
+            # Stop and remove existing container if it exists
+            docker stop my-go-app || true
+            docker rm my-go-app || true
+
+            # Pass the environment variables using the -e flag
+            docker run -d \
+              --name my-go-app \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              -e DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/my-go-app:latest
+
+            # Prune old images to save disk space
+            docker image prune -f
