@@ -15,10 +15,15 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("No .env file found; using system environment variables")
 	}
 
-	conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Fatal("DATABASE_URL environment variable is required")
+	}
+
+	conn, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)
@@ -28,10 +33,8 @@ func main() {
 	fmt.Println("Connected to database")
 
 	config.SetupStorage()
-
 	r := config.SetupRouter(conn)
 
 	fmt.Println("Listening on port 8080")
-
 	http.ListenAndServe(":8080", r)
 }
