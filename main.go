@@ -42,7 +42,7 @@ func main() {
 }
 
 func runDatabaseMigrations(dbURL string) {
-    m, err := migrate.New("file://migrations", dbURL)
+    m, err := migrate.New("/migrations", dbURL)
     if err != nil {
         log.Fatalf("Could not create migrate instance: %v", err)
     }
