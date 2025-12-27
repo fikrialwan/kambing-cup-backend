@@ -66,3 +66,16 @@ func (u *UserRepository) Delete(id int) error {
 
 	return err
 }
+
+func (u *UserRepository) SuperadminExists() (bool, error) {
+	var exists bool
+	err := u.conn.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM users WHERE role = 'SUPERADMIN' AND deleted_at IS NULL)").Scan(&exists)
+	return exists, err
+}
+
+func (u *UserRepository) CreateSuperadmin(username, password string) error {
+	_, err := u.conn.Exec(context.Background(),
+		"INSERT INTO users (username, password, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
+		username, password, "SUPERADMIN", time.Now(), time.Now())
+	return err
+}
