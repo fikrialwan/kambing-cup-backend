@@ -1,33 +1,41 @@
 # Stage 1: Build
 FROM golang:1.21-alpine AS builder
 
-# Install git and certificates (needed for private modules or HTTPS)
+# Install build dependencies
 RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app
 
-# Leverage Docker cache by copying go.mod and go.sum first
+# 1. Cache dependencies (speeds up GitHub Action builds)
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the source code
+# 2. Copy source code and migrations
 COPY . .
 
-# Build the binary with optimizations:
-# -ldflags="-s -w" removes symbol tables and debug info to shrink size
-# CGO_ENABLED=0 ensures a static binary for portability
+# 3. Build optimized static binary
+# -ldflags="-s -w" reduces binary size by ~25%
+# CGO_ENABLED=0 ensures the binary runs on the slim Alpine image
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o main ./main.go
 
-# Stage 2: Runtime
-FROM alpine:latest  
-RUN apk --no-cache add ca-certificates
+# Stage 2: Runtime (Production Image)
+FROM alpine:3.19  
+
+# Security: Install CA certs for HTTPS/Postgres connections
+RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /root/
 
-# Copy only the compiled binary from the builder stage
+# 4. Copy the compiled binary
 COPY --from=builder /app/main .
 
-# Expose the port your app runs on
+# 5. IMPORTANT: Copy migrations folder for the app to run on startup
+COPY --from=builder /app/migrations ./migrations
+
+# Use a non-root user for better security in production
+# RUN adduser -D appuser
+# USER appuser
+
 EXPOSE 8080
 
 # Run the binary
