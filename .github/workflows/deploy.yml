@@ -34,22 +34,16 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            # Pull the latest image
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-go-app:latest
+        script: |
+          # Navigate to your app directory on the server
+          cd /home/${{ secrets.SERVER_USER }}/app
 
-            # Stop and remove existing container if it exists
-            docker stop my-go-app || true
-            docker rm my-go-app || true
+          # Pull the latest version of your application image
+          docker compose pull app
 
-            # Pass the environment variables using the -e flag
-            docker run -d \
-              --name my-go-app \
-              --restart unless-stopped \
-              -p 8080:8080 \
-              -e DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}" \
-              -e SECRET="${{ secrets.SECRET }} " \
-              ${{ secrets.DOCKERHUB_USERNAME }}/my-go-app:latest
+          # Restart the app service. 
+          # --no-deps ensures we don't restart the database unnecessarily.
+          docker compose up -d --no-deps app
 
-            # Prune old images to save disk space
-            docker image prune -f
+          # Clean up old, unused images to save disk space
+          docker image prune -f

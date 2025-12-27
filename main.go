@@ -32,9 +32,24 @@ func main() {
 
 	fmt.Println("Connected to database")
 
+	runDatabaseMigrations(os.Getenv("DATABASE_URL"))
+
 	config.SetupStorage()
 	r := config.SetupRouter(conn)
 
 	fmt.Println("Listening on port 8080")
 	http.ListenAndServe(":8080", r)
+}
+
+func runDatabaseMigrations(dbURL string) {
+    m, err := migrate.New("file://migrations", dbURL)
+    if err != nil {
+        log.Fatalf("Could not create migrate instance: %v", err)
+    }
+
+    if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+        log.Fatalf("Could not run up migrations: %v", err)
+    }
+
+    log.Println("Migrations completed successfully!")
 }
