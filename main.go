@@ -10,6 +10,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
@@ -42,7 +46,7 @@ func main() {
 }
 
 func runDatabaseMigrations(dbURL string) {
-    m, err := migrate.New("/migrations", dbURL)
+    m, err := migrate.New("file://migrations", dbURL)
     if err != nil {
         log.Fatalf("Could not create migrate instance: %v", err)
     }
