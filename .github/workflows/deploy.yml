@@ -34,16 +34,8 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          # Navigate to your app directory on the server
-          cd /home/${{ secrets.SERVER_USER }}/app
-
-          # Pull the latest version of your application image
-          docker compose pull app
-
-          # Restart the app service. 
-          # --no-deps ensures we don't restart the database unnecessarily.
-          docker compose up -d --no-deps app
-
-          # Clean up old, unused images to save disk space
-          docker image prune -f
+          script: |
+            cd /home/${{ secrets.SERVER_USER }}/app
+            docker compose pull app
+            docker compose up -d --no-deps app
+            docker image prune -f
