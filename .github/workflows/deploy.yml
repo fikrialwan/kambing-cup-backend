@@ -36,6 +36,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/${{ secrets.SERVER_USER }}/app
-            docker compose pull app
-            docker compose up -d --no-deps app
+            docker compose pull be_app
+            docker compose up -d --no-deps be_app
             docker image prune -f
