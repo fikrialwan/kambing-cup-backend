@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 type SportService struct {
@@ -46,7 +48,11 @@ func (s *SportService) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	sport, err := s.sportRepo.GetByID(id)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -61,7 +67,7 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(2 * 1024 * 1024)
 
 	var sport model.Sport
-	
+
 	tournamentID, err := strconv.Atoi(r.FormValue("tournament_id"))
 	if err != nil {
 		http.Error(w, "Invalid Tournament ID", http.StatusBadRequest)
@@ -135,7 +141,7 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Name is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	file, handler, err := r.FormFile("image")
 	if err == nil {
 		if !helper.IsImage(handler) {

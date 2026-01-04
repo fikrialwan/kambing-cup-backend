@@ -2,12 +2,14 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/repository"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 type UserService struct {
@@ -50,7 +52,7 @@ func (s *UserService) GetUser(w http.ResponseWriter, r *http.Request) {
 	user, err := s.userRepo.GetById(id)
 
 	if err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}
@@ -74,8 +76,8 @@ func (s *UserService) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Username == "" || user.Password == "" || user.Role == "" {
-		http.Error(w, "Username, password, and role are required", http.StatusBadRequest)
+	if user.Username == "" || user.Password == "" || user.Role == "" || user.Email == "" {
+		http.Error(w, "Username, email, password, and role are required", http.StatusBadRequest)
 		return
 	}
 
@@ -110,8 +112,8 @@ func (s *UserService) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Username == "" || user.Password == "" || user.Role == "" {
-		http.Error(w, "Username, password, and role are required", http.StatusBadRequest)
+	if user.Username == "" || user.Password == "" || user.Role == "" || user.Email == "" {
+		http.Error(w, "Username, email, password, and role are required", http.StatusBadRequest)
 		return
 	}
 
@@ -123,7 +125,7 @@ func (s *UserService) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	_, err = s.userRepo.GetById(user.ID)
 
 	if err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}

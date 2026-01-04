@@ -8,7 +8,7 @@ import (
 	"kambing-cup-backend/service"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func intMiddleware(next http.Handler) http.Handler {
@@ -22,10 +22,10 @@ func intMiddleware(next http.Handler) http.Handler {
 
 }
 
-func User(conn *pgx.Conn) http.Handler {
+func User(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
-	user := repository.NewUserRepository(conn)
+	user := repository.NewUserRepository(pool)
 	s := service.NewUserService(*user)
 
 	r.Use(middleware.Auth)

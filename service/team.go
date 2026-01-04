@@ -2,12 +2,14 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/repository"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 type TeamService struct {
@@ -41,7 +43,11 @@ func (s *TeamService) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	team, err := s.teamRepo.GetByID(id)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 

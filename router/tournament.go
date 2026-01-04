@@ -7,13 +7,13 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Tournament(conn *pgx.Conn) http.Handler {
+func Tournament(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
-	tr := repository.NewTournamentRepository(conn)
+	tr := repository.NewTournamentRepository(pool)
 	ts := service.NewTournamentService(*tr)
 
 	r.Use(middleware.Auth)

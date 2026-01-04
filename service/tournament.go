@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 type TournamentService struct {
@@ -27,14 +29,14 @@ func (s *TournamentService) GetAll(w http.ResponseWriter, _ *http.Request) {
 	tournaments, err := s.tournamentRepo.GetAll()
 
 	if err != nil {
-		http.Error(nil, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(tournaments); err != nil {
-		http.Error(nil, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
@@ -196,7 +198,7 @@ func (s *TournamentService) Get(w http.ResponseWriter, r *http.Request) {
 	tournament, err := s.tournamentRepo.GetBySlug(slug)
 
 	if err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}

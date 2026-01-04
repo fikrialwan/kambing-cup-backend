@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AuthService struct {
-	conn *pgx.Conn
+	pool *pgxpool.Pool
 }
 
 type LoginRequest struct {
-	Username string `json:"username"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -27,23 +27,29 @@ type LoginResponse struct {
 	ExpIn int64  `json:"exp_in"`
 }
 
-func NewAuthService(conn *pgx.Conn) *AuthService {
-	return &AuthService{conn: conn}
+func NewAuthService(pool *pgxpool.Pool) *AuthService {
+	return &AuthService{pool: pool}
 }
 
 func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
 	var loginRequest LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
-		http.Error(w, "Username and password are required", http.StatusBadRequest)
+		http.Error(w, "Email and password are required", http.StatusBadRequest)
 		return
 	}
 
-	repository := repository.NewUserRepository(s.conn)
+	if loginRequest.Email == "" || loginRequest.Password == "" {
+		http.Error(w, "Email and password are required", http.StatusBadRequest)
+		return
+	}
 
-	users, err := repository.GetByUsernamePassword(loginRequest.Username, loginRequest.Password)
+	userRepo := repository.NewUserRepository(s.pool)
+
+	users, err := userRepo.GetByEmailPassword(loginRequest.Email, loginRequest.Password)
 
 	if err != nil {
-		http.Error(w, "Username or password is incorrect", http.StatusBadRequest)
+		log.Default().Println(err.Error())
+		http.Error(w, "Email or password is incorrect", http.StatusBadRequest)
 		return
 	}
 

@@ -7,13 +7,13 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Match(conn *pgx.Conn) http.Handler {
+func Match(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
-	mr := repository.NewMatchRepository(conn)
+	mr := repository.NewMatchRepository(pool)
 	ms := service.NewMatchService(*mr)
 
 	r.Get("/", ms.GetAll)
