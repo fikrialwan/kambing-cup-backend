@@ -1,0 +1,2 @@
+description = "Performs a Google-style code review."
+prompt = "Review the selected Go code for: 1. Readability, 2. Goroutine safety, 3. Error handling, 4. Performance bottlenecks."
