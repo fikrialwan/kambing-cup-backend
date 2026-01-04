@@ -6,12 +6,12 @@ import (
 	"kambing-cup-backend/service"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Auth(conn *pgx.Conn) http.Handler {
+func Auth(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
-	s := service.NewAuthService(conn)
+	s := service.NewAuthService(pool)
 
 	r.Post("/login", s.Login)
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"kambing-cup-backend/config"
 	"kambing-cup-backend/repository"
 	"log"
@@ -11,11 +10,17 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+)
+
+const (
+	webAddress    = ":8080"
+	retryAttempts = 10
 )
 
 func main() {
@@ -29,43 +34,48 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
-	conn, err := pgx.Connect(context.Background(), dbURL)
+	pool, err := pgxpool.New(context.Background(), dbURL)
 	log.Println("Connecting to database...")
-	for i := 0; i < 10; i++ {
-		conn, err = pgx.Connect(context.Background(), dbURL)
+	for i := 0; i < retryAttempts; i++ {
+		pool, err = pgxpool.New(context.Background(), dbURL)
 		if err == nil {
-			break
+			err = pool.Ping(context.Background())
+			if err == nil {
+				break
+			}
 		}
-		log.Printf("Database not reachable, retrying in 2s... (%d/10). Error: %v", i+1, err)
+		log.Printf("Database not reachable, retrying in 2s... (%d/%d). Error: %v", i+1, retryAttempts, err)
 		time.Sleep(2 * time.Second)
 	}
 
 	if err != nil {
 		log.Fatalf("Unable to connect to database after retries: %v", err)
 	}
-	defer conn.Close(context.Background())
+	defer pool.Close()
 
-	fmt.Println("Connected to database")
+	log.Println("Connected to database")
 
 	runDatabaseMigrations(os.Getenv("DATABASE_URL"))
 
 	config.SetupStorage()
-	r := config.SetupRouter(conn)
+	r := config.SetupRouter(pool)
 
-	fmt.Println("Listening on port 8080")
-	go createSuperadminAccount(conn)
-	http.ListenAndServe(":8080", r)
+	log.Printf("Listening on port %s", webAddress)
+	go createSuperadminAccount(pool)
+	if err := http.ListenAndServe(webAddress, r); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
 
 func runDatabaseMigrations(dbURL string) {
 	m, err := migrate.New("file://migrations", dbURL)
 	log.Println("Starting database migrations...")
-	for i := 0; i < 10; i++ {
+	for i := 0; i < retryAttempts; i++ {
 		m, err = migrate.New("file://migrations", dbURL)
 		if err == nil {
 			break
 		}
-		log.Printf("Migration setup failed, retrying in 2s... (%d/10). Error: %v", i+1, err)
+		log.Printf("Migration setup failed, retrying in 2s... (%d/%d). Error: %v", i+1, retryAttempts, err)
 		time.Sleep(2 * time.Second)
 	}
 
@@ -80,16 +90,17 @@ func runDatabaseMigrations(dbURL string) {
 	log.Println("Migrations completed successfully!")
 }
 
-func createSuperadminAccount(conn *pgx.Conn) {
+func createSuperadminAccount(pool *pgxpool.Pool) {
 	username := os.Getenv("SUPERADMIN_USERNAME")
+	email := os.Getenv("SUPERADMIN_EMAIL")
 	password := os.Getenv("SUPERADMIN_PASSWORD")
 
-	if username == "" || password == "" {
-		log.Println("SUPERADMIN_USERNAME or SUPERADMIN_PASSWORD not set, skipping yourusername creation")
+	if username == "" || password == "" || email == "" {
+		log.Println("SUPERADMIN_USERNAME, SUPERADMIN_EMAIL or SUPERADMIN_PASSWORD not set, skipping yourusername creation")
 		return
 	}
 
-	userRepo := repository.NewUserRepository(conn)
+	userRepo := repository.NewUserRepository(pool)
 
 	// Check if yourusername already exists
 	exists, err := userRepo.SuperadminExists()
@@ -99,12 +110,32 @@ func createSuperadminAccount(conn *pgx.Conn) {
 	}
 
 	if exists {
-		log.Println("Superadmin account already exists, skipping creation")
+		user, err := userRepo.GetSuperadminByUsername(username)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				log.Println("Superadmin account already exists, but with a different username, skipping creation")
+				return
+			}
+			log.Printf("Failed to get yourusername by username: %v", err)
+			return
+		}
+
+		if user.Email == "" {
+			log.Println("Superadmin account exists without an email, updating...")
+			err := userRepo.UpdateSuperadminEmail(user.ID, email)
+			if err != nil {
+				log.Printf("Failed to update yourusername email: %v", err)
+				return
+			}
+			log.Println("Superadmin account updated successfully with email")
+		} else {
+			log.Println("Superadmin account already exists, skipping creation")
+		}
 		return
 	}
 
 	// Create yourusername account
-	err = userRepo.CreateSuperadmin(username, password)
+	err = userRepo.CreateSuperadmin(username, email, password)
 	if err != nil {
 		log.Printf("Failed to create yourusername account: %v", err)
 		return
