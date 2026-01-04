@@ -1,0 +1,10 @@
+description = "Generates high-quality, table-driven unit tests for Go code."
+prompt = """
+Analyze the provided Go code and generate a comprehensive unit test file (*_test.go).
+1. Use table-driven testing (struct with 'name', 'args', 'want', and 'wantErr').
+2. Use 't.Run' for isolated subtests.
+3. Include edge cases: nil inputs, empty strings, zero values, and maximum/minimum limits.
+4. Use 'testify/assert' or 'testify/require' if available, otherwise use standard 't.Errorf'.
+5. Mock database dependencies using interfaces or the 'pgx' mock strategy.
+6. Ensure 'context.Context' is handled with appropriate timeouts.
+"""

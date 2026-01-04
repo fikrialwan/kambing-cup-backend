@@ -1,0 +1,7 @@
+description = "Generates a new Chi-compatible HTTP handler and route."
+prompt = """
+1. Create a handler function that matches 'func(w http.ResponseWriter, r *http.Request)'.
+2. Use Chi's 'render' or standard JSON encoding for responses.
+3. Show how to mount this handler in a sub-router using 'r.Get' or 'r.Post'.
+4. Ensure context from pgx is utilized if a DB call is needed.
+"""

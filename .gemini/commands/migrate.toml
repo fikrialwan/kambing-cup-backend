@@ -1,0 +1,8 @@
+description = "Generates a pair of .up.sql and .down.sql migration files."
+prompt = """
+Based on our project history, generate the next SQL migration files. 
+1. Determine the next version number (we are currently at 3).
+2. Ask for the table or column changes if not provided.
+3. Provide the SQL for both .up.sql and .down.sql.
+4. Use PostgreSQL 16 syntax.
+"""
