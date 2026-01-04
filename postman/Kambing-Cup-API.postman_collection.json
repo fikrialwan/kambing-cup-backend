@@ -194,7 +194,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"username\": \"yourusername\",\n    \"password\": \"yourpassword\"\n}\n// {\n//     \"username\": \"test\",\n//     \"password\": \"test123\"\n// }",
+							"raw": "{\n    \"email\": \"yourusername@test.com\",\n    \"password\": \"adminpassword\"\n}\n// {\n//     \"username\": \"test\",\n//     \"password\": \"test123\"\n// }",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -381,6 +381,7 @@
 			"script": {
 				"type": "text/javascript",
 				"packages": {},
+				"requests": {},
 				"exec": [
 					""
 				]
@@ -391,6 +392,7 @@
 			"script": {
 				"type": "text/javascript",
 				"packages": {},
+				"requests": {},
 				"exec": [
 					""
 				]
@@ -400,13 +402,11 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "localhost:8080",
-			"type": "string"
+			"value": "localhost:8080"
 		},
 		{
 			"key": "token",
-			"value": "Bearer ",
-			"type": "string"
+			"value": "Bearer "
 		}
 	]
 }
