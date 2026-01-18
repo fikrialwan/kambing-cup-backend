@@ -69,6 +69,18 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		tournament.IsActive = r.FormValue("is_active") == "true"
 	}
 
+	if r.FormValue("total_surah") != "" {
+		totalSurah, err := strconv.Atoi(r.FormValue("total_surah"))
+		if err != nil {
+			http.Error(w, "Total surah must be a number", http.StatusBadRequest)
+			return
+		}
+		tournament.TotalSurah = totalSurah
+	} else {
+		http.Error(w, "Total surah is required", http.StatusBadRequest)
+		return
+	}
+
 	file, handler, err := r.FormFile("image")
 
 	if err != nil {
@@ -139,6 +151,15 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 
 	if r.FormValue("is_active") != "" {
 		tournament.IsActive = r.FormValue("is_active") == "true"
+	}
+
+	if r.FormValue("total_surah") != "" {
+		totalSurah, err := strconv.Atoi(r.FormValue("total_surah"))
+		if err != nil {
+			http.Error(w, "Total surah must be a number", http.StatusBadRequest)
+			return
+		}
+		tournament.TotalSurah = totalSurah
 	}
 
 	fileName := ""

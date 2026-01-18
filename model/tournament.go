@@ -11,6 +11,7 @@ type Tournament struct {
 	IsShow    bool       `json:"is_show" validate:"required"`
 	IsActive  bool       `json:"is_active" validate:"required"`
 	ImageUrl  string     `json:"image_url" validate:"required"`
+	TotalSurah int       `json:"total_surah" validate:"required"`
 	CreatedAt time.Time  `json:"-"`
 	UpdatedAt time.Time  `json:"-"`
 	DeletedAt *time.Time `json:"-"`

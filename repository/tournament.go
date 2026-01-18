@@ -19,7 +19,7 @@ func NewTournamentRepository(pool *pgxpool.Pool) *TournamentRepository {
 
 func (T *TournamentRepository) GetAll() ([]model.Tournament, error) {
 	var tournaments []model.Tournament
-	rows, err := T.pool.Query(context.Background(), "SELECT * FROM tournaments WHERE deleted_at IS NULL")
+	rows, err := T.pool.Query(context.Background(), "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE deleted_at IS NULL")
 	if err != nil {
 		log.Print(err.Error())
 		return tournaments, err
@@ -27,7 +27,7 @@ func (T *TournamentRepository) GetAll() ([]model.Tournament, error) {
 
 	for rows.Next() {
 		var tournament model.Tournament
-		if err := rows.Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt); err != nil {
+		if err := rows.Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt); err != nil {
 			log.Print(err.Error())
 			return tournaments, err
 		}
@@ -38,18 +38,18 @@ func (T *TournamentRepository) GetAll() ([]model.Tournament, error) {
 }
 
 func (T *TournamentRepository) Create(tournament model.Tournament) error {
-	_, err := T.pool.Exec(context.Background(), "INSERT INTO tournaments (name, slug, is_show, is_active, image_url, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, time.Now(), time.Now())
+	_, err := T.pool.Exec(context.Background(), "INSERT INTO tournaments (name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, tournament.TotalSurah, time.Now(), time.Now())
 
 	return err
 }
 
 func (T *TournamentRepository) Update(tournament model.Tournament) error {
 	if tournament.ImageUrl == "" {
-		_, err := T.pool.Exec(context.Background(), "UPDATE tournaments SET name = $1, slug = $2, is_show = $3, is_active = $4, updated_at = $5 WHERE id = $6", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, time.Now(), tournament.ID)
+		_, err := T.pool.Exec(context.Background(), "UPDATE tournaments SET name = $1, slug = $2, is_show = $3, is_active = $4, total_surah = $5, updated_at = $6 WHERE id = $7", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, tournament.TotalSurah, time.Now(), tournament.ID)
 		return err
 	}
 
-	_, err := T.pool.Exec(context.Background(), "UPDATE tournaments SET name = $1, slug = $2, is_show = $3, is_active = $4, image_url = $5, updated_at = $6 WHERE id = $7", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, time.Now(), tournament.ID)
+	_, err := T.pool.Exec(context.Background(), "UPDATE tournaments SET name = $1, slug = $2, is_show = $3, is_active = $4, image_url = $5, total_surah = $6, updated_at = $7 WHERE id = $8", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, tournament.TotalSurah, time.Now(), tournament.ID)
 
 	return err
 }
@@ -62,6 +62,6 @@ func (T *TournamentRepository) Delete(id int) error {
 
 func (T *TournamentRepository) GetBySlug(slug string) (model.Tournament, error) {
 	var tournament model.Tournament
-	err := T.pool.QueryRow(context.Background(), "SELECT * FROM tournaments WHERE slug = $1 AND deleted_at IS NULL", slug).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
+	err := T.pool.QueryRow(context.Background(), "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE slug = $1 AND deleted_at IS NULL", slug).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
 	return tournament, err
 }
