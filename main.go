@@ -57,8 +57,13 @@ func main() {
 
 	runDatabaseMigrations(os.Getenv("DATABASE_URL"))
 
+	if os.Getenv("FIREBASE_DATABASE_URL") == "" {
+		log.Fatal("FIREBASE_DATABASE_URL environment variable is required")
+	}
+	firebaseClient := config.SetupFirebase()
+
 	config.SetupStorage()
-	r := config.SetupRouter(pool)
+	r := config.SetupRouter(pool, firebaseClient)
 
 	log.Printf("Listening on port %s", webAddress)
 	go createSuperadminAccount(pool)

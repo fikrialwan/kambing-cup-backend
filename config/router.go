@@ -10,9 +10,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"firebase.google.com/go/v4/db"
 )
 
-func SetupRouter(pool *pgxpool.Pool) *chi.Mux {
+func SetupRouter(pool *pgxpool.Pool, firebaseClient *db.Client) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 

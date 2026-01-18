@@ -31,6 +31,7 @@ COPY --from=builder /app/main .
 
 # 5. IMPORTANT: Copy migrations folder for the app to run on startup
 COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/serviceAccountKey.json .
 
 # Use a non-root user for better security in production
 # RUN adduser -D appuser
