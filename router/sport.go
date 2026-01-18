@@ -14,7 +14,8 @@ func Sport(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	sr := repository.NewSportRepository(pool)
-	ss := service.NewSportService(*sr)
+	tr := repository.NewTournamentRepository(pool)
+	ss := service.NewSportService(*sr, *tr)
 
 	r.Get("/", ss.GetAll)
 	r.Get("/{id}", ss.GetByID)

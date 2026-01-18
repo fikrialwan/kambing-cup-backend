@@ -18,11 +18,12 @@ import (
 )
 
 type SportService struct {
-	sportRepo *repository.SportRepository
+	sportRepo      *repository.SportRepository
+	tournamentRepo *repository.TournamentRepository
 }
 
-func NewSportService(sportRepo repository.SportRepository) *SportService {
-	return &SportService{sportRepo: &sportRepo}
+func NewSportService(sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository) *SportService {
+	return &SportService{sportRepo: &sportRepo, tournamentRepo: &tournamentRepo}
 }
 
 func (s *SportService) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +76,15 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	sport.TournamentID = tournamentID
 
+	// Validate tournament exists
+	if _, err := s.tournamentRepo.GetByID(tournamentID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "Tournament not found", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 
 	if r.FormValue("name") != "" {
 		sport.Name = r.FormValue("name")
@@ -133,6 +143,16 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sport.TournamentID = tournamentID
+
+	// Validate tournament exists
+	if _, err := s.tournamentRepo.GetByID(tournamentID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "Tournament not found", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 
 	if r.FormValue("name") != "" {
 		sport.Name = r.FormValue("name")
