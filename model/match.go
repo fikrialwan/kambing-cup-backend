@@ -15,8 +15,8 @@ const (
 type Match struct {
 	ID          int         `json:"id"`
 	SportID     int         `json:"sport_id" validate:"required"`
-	HomeID      int         `json:"home_id" validate:"required"`
-	AwayID      int         `json:"away_id" validate:"required"`
+	HomeID      *int        `json:"home_id"`
+	AwayID      *int        `json:"away_id"`
 	HomeScore   *string     `json:"home_score"`
 	AwayScore   *string     `json:"away_score"`
 	RoundID     int         `json:"round_id" validate:"required"`

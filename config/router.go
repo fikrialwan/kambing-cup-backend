@@ -43,7 +43,7 @@ func SetupRouter(pool *pgxpool.Pool, firebaseClient *db.Client) *chi.Mux {
 	r.Mount("/tournament", router.Tournament(pool))
 	r.Mount("/sport", router.Sport(pool))
 	r.Mount("/team", router.Team(pool))
-	r.Mount("/match", router.Match(pool))
+	r.Mount("/match", router.Match(pool, firebaseClient))
 	r.Mount("/public", router.Public(pool))
 
 	fs := http.FileServer(http.Dir("./storage"))

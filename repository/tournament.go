@@ -65,3 +65,9 @@ func (T *TournamentRepository) GetBySlug(slug string) (model.Tournament, error) 
 	err := T.pool.QueryRow(context.Background(), "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE slug = $1 AND deleted_at IS NULL", slug).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
 	return tournament, err
 }
+
+func (T *TournamentRepository) GetByID(id int) (model.Tournament, error) {
+	var tournament model.Tournament
+	err := T.pool.QueryRow(context.Background(), "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE id = $1 AND deleted_at IS NULL", id).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
+	return tournament, err
+}

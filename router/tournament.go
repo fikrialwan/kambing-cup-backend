@@ -20,6 +20,7 @@ func Tournament(pool *pgxpool.Pool) http.Handler {
 	r.Use(middleware.AdminAuth)
 
 	r.Get("/", ts.GetAll)
+	r.Get("/{id}", ts.GetByID)
 	r.Post("/", ts.Create)
 	r.Put("/{id}", ts.Update)
 	r.Delete("/{id}", ts.Delete)
