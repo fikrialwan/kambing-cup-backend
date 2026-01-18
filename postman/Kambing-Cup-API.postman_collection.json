@@ -175,7 +175,8 @@
 									"}"
 								],
 								"type": "text/javascript",
-								"packages": {}
+								"packages": {},
+								"requests": {}
 							}
 						},
 						{
@@ -185,7 +186,8 @@
 									""
 								],
 								"type": "text/javascript",
-								"packages": {}
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -194,7 +196,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"yourusername@test.com\",\n    \"password\": \"adminpassword\"\n}\n// {\n//     \"username\": \"test\",\n//     \"password\": \"test123\"\n// }",
+							"raw": "{\n    \"email\": \"youremail@gmail.com\",\n    \"password\": \"yourpassword\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
