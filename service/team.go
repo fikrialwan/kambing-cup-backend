@@ -13,11 +13,11 @@ import (
 )
 
 type TeamService struct {
-	teamRepo *repository.TeamRepository
+	teamRepo repository.TeamRepository
 }
 
 func NewTeamService(teamRepo repository.TeamRepository) *TeamService {
-	return &TeamService{teamRepo: &teamRepo}
+	return &TeamService{teamRepo: teamRepo}
 }
 
 func (s *TeamService) GetAll(w http.ResponseWriter, r *http.Request) {

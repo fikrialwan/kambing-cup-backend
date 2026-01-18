@@ -1,9 +1,9 @@
 package router
 
 import (
-	"net/http"
-
+	"kambing-cup-backend/repository"
 	"kambing-cup-backend/service"
+	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,7 +11,9 @@ import (
 
 func Auth(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
-	s := service.NewAuthService(pool)
+	
+	userRepo := repository.NewUserRepository(pool)
+	s := service.NewAuthService(userRepo)
 
 	r.Post("/login", s.Login)
 

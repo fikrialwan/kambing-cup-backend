@@ -18,12 +18,12 @@ import (
 )
 
 type SportService struct {
-	sportRepo      *repository.SportRepository
-	tournamentRepo *repository.TournamentRepository
+	sportRepo      repository.SportRepository
+	tournamentRepo repository.TournamentRepository
 }
 
 func NewSportService(sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository) *SportService {
-	return &SportService{sportRepo: &sportRepo, tournamentRepo: &tournamentRepo}
+	return &SportService{sportRepo: sportRepo, tournamentRepo: tournamentRepo}
 }
 
 func (s *SportService) GetAll(w http.ResponseWriter, r *http.Request) {

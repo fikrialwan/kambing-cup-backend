@@ -26,7 +26,7 @@ func User(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	user := repository.NewUserRepository(pool)
-	s := service.NewUserService(*user)
+	s := service.NewUserService(user)
 
 	r.Use(middleware.Auth)
 	r.Use(intMiddleware)

@@ -13,7 +13,7 @@ func Public(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	tr := repository.NewTournamentRepository(pool)
-	ts := service.NewTournamentService(*tr)
+	ts := service.NewTournamentService(tr)
 
 	r.Get("/tournament/{slug}", ts.Get)
 

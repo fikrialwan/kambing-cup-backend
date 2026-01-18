@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AuthService struct {
-	pool *pgxpool.Pool
+	userRepo repository.UserRepository
 }
 
 type LoginRequest struct {
@@ -27,8 +26,8 @@ type LoginResponse struct {
 	ExpIn int64  `json:"exp_in"`
 }
 
-func NewAuthService(pool *pgxpool.Pool) *AuthService {
-	return &AuthService{pool: pool}
+func NewAuthService(userRepo repository.UserRepository) *AuthService {
+	return &AuthService{userRepo: userRepo}
 }
 
 func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
@@ -43,9 +42,7 @@ func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userRepo := repository.NewUserRepository(s.pool)
-
-	users, err := userRepo.GetByEmailPassword(loginRequest.Email, loginRequest.Password)
+	users, err := s.userRepo.GetByEmailPassword(loginRequest.Email, loginRequest.Password)
 
 	if err != nil {
 		log.Default().Println(err.Error())

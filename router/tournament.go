@@ -14,7 +14,7 @@ func Tournament(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	tr := repository.NewTournamentRepository(pool)
-	ts := service.NewTournamentService(*tr)
+	ts := service.NewTournamentService(tr)
 
 	r.Use(middleware.Auth)
 	r.Use(middleware.AdminAuth)

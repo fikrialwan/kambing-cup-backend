@@ -18,11 +18,11 @@ import (
 )
 
 type TournamentService struct {
-	tournamentRepo *repository.TournamentRepository
+	tournamentRepo repository.TournamentRepository
 }
 
 func NewTournamentService(tournamentRepo repository.TournamentRepository) *TournamentService {
-	return &TournamentService{tournamentRepo: &tournamentRepo}
+	return &TournamentService{tournamentRepo: tournamentRepo}
 }
 
 func (s *TournamentService) GetAll(w http.ResponseWriter, _ *http.Request) {

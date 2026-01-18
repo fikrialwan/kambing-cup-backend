@@ -14,7 +14,7 @@ func Team(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	tr := repository.NewTeamRepository(pool)
-	ts := service.NewTeamService(*tr)
+	ts := service.NewTeamService(tr)
 
 	r.Get("/", ts.GetAll)
 	r.Get("/{id}", ts.GetByID)

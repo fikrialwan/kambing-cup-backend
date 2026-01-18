@@ -13,11 +13,11 @@ import (
 )
 
 type UserService struct {
-	userRepo *repository.UserRepository
+	userRepo repository.UserRepository
 }
 
 func NewUserService(userRepo repository.UserRepository) *UserService {
-	return &UserService{userRepo: &userRepo}
+	return &UserService{userRepo: userRepo}
 }
 
 func (s *UserService) checkRole(role string) bool {

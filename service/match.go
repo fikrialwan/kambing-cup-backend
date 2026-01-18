@@ -18,17 +18,43 @@ import (
 )
 
 type MatchService struct {
-	matchRepo      *repository.MatchRepository
-	sportRepo      *repository.SportRepository
-	tournamentRepo *repository.TournamentRepository
-	firebaseDb     *db.Client
+	matchRepo      repository.MatchRepository
+	sportRepo      repository.SportRepository
+	tournamentRepo repository.TournamentRepository
+	firebaseDb     FirebaseClient
 }
 
-func NewMatchService(matchRepo repository.MatchRepository, sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository, firebaseDb *db.Client) *MatchService {
+// Firebase Interfaces
+type FirebaseClient interface {
+	NewRef(path string) FirebaseRef
+}
+
+type FirebaseRef interface {
+	Set(ctx context.Context, v interface{}) error
+}
+
+// Real Implementation
+type RealFirebaseClient struct {
+	Client *db.Client
+}
+
+func (c *RealFirebaseClient) NewRef(path string) FirebaseRef {
+	return &RealFirebaseRef{Ref: c.Client.NewRef(path)}
+}
+
+type RealFirebaseRef struct {
+	Ref *db.Ref
+}
+
+func (r *RealFirebaseRef) Set(ctx context.Context, v interface{}) error {
+	return r.Ref.Set(ctx, v)
+}
+
+func NewMatchService(matchRepo repository.MatchRepository, sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository, firebaseDb FirebaseClient) *MatchService {
 	return &MatchService{
-		matchRepo:      &matchRepo,
-		sportRepo:      &sportRepo,
-		tournamentRepo: &tournamentRepo,
+		matchRepo:      matchRepo,
+		sportRepo:      sportRepo,
+		tournamentRepo: tournamentRepo,
 		firebaseDb:     firebaseDb,
 	}
 }
