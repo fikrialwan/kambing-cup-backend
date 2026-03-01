@@ -42,6 +42,10 @@ func IsImage(file *multipart.FileHeader) bool {
 	return file.Header.Get("Content-Type") == "image/jpeg" || file.Header.Get("Content-Type") == "image/png"
 }
 
+func ValidateImageSize(file *multipart.FileHeader, maxSize int64) bool {
+	return file.Size <= maxSize
+}
+
 func CheckDirectory(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err := os.Mkdir(path, 0755)

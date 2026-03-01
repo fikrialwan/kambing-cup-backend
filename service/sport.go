@@ -101,6 +101,11 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if !helper.ValidateImageSize(handler, 2*1024*1024) {
+			http.Error(w, "Image size must be less than 2MB", http.StatusBadRequest)
+			return
+		}
+
 		fileName := fmt.Sprintf("%s-%d%s", sport.Slug, time.Now().UnixNano(), filepath.Ext(handler.Filename))
 
 		helper.CheckDirectory("./storage/sport")
@@ -166,6 +171,11 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		if !helper.IsImage(handler) {
 			http.Error(w, "Invalid image format", http.StatusBadRequest)
+			return
+		}
+
+		if !helper.ValidateImageSize(handler, 2*1024*1024) {
+			http.Error(w, "Image size must be less than 2MB", http.StatusBadRequest)
 			return
 		}
 

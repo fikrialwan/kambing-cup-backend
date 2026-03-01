@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -84,7 +85,44 @@ func TestSportService_Create(t *testing.T) {
 		mockTournamentRepo.AssertExpectations(t)
 		mockSportRepo.AssertNotCalled(t, "Create")
 	})
-	
+
+	t.Run("ImageSizeTooLarge", func(t *testing.T) {
+		mockSportRepo := new(MockSportRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+
+		// Mock Tournament GetByID
+		mockTournamentRepo.On("GetByID", 1).Return(model.Tournament{ID: 1}, nil)
+
+		// Create Request with a "large" image (simulated)
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		writer.WriteField("name", "Futsal")
+		writer.WriteField("tournament_id", "1")
+
+		// Create a part for the image
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Disposition", `form-data; name="image"; filename="large.png"`)
+		header.Set("Content-Type", "image/png")
+		part, _ := writer.CreatePart(header)
+		// Write more than 2MB of data
+		largeData := make([]byte, 2*1024*1024+1)
+		part.Write(largeData)
+		writer.Close()
+
+		req := httptest.NewRequest("POST", "/sport", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		w := httptest.NewRecorder()
+
+		svc.Create(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "Image size must be less than 2MB")
+
+		mockTournamentRepo.AssertExpectations(t)
+		mockSportRepo.AssertNotCalled(t, "Create")
+	})
+
 	t.Run("GetByID", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)

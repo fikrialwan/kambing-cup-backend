@@ -33,6 +33,27 @@ func TestIsImage(t *testing.T) {
 	}
 }
 
+func TestValidateImageSize(t *testing.T) {
+	tests := []struct {
+		size     int64
+		maxSize  int64
+		expected bool
+	}{
+		{1024, 2048, true},
+		{2048, 2048, true},
+		{3072, 2048, false},
+		{0, 2048, true},
+	}
+
+	for _, test := range tests {
+		fileHeader := &multipart.FileHeader{
+			Size: test.size,
+		}
+		result := helper.ValidateImageSize(fileHeader, test.maxSize)
+		assert.Equal(t, test.expected, result)
+	}
+}
+
 func TestCheckDirectory(t *testing.T) {
 	dir := "./test_dir"
 	
