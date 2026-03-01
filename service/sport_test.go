@@ -24,10 +24,10 @@ func TestSportService_Create(t *testing.T) {
 		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
 
 		// Mock Tournament GetByID
-		mockTournamentRepo.On("GetByID", 1).Return(model.Tournament{ID: 1}, nil)
+		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1}, nil)
 
 		// Mock Sport Create
-		mockSportRepo.On("Create", mock.AnythingOfType("model.Sport")).Return(nil)
+		mockSportRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Sport")).Return(nil)
 
 		// Create Request
 		body := new(bytes.Buffer)
@@ -55,7 +55,7 @@ func TestSportService_Create(t *testing.T) {
 		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
 
 		// Mock Tournament GetByID to fail
-		mockTournamentRepo.On("GetByID", 999).Return(model.Tournament{}, errors.New("not found"))
+		mockTournamentRepo.On("GetByID", mock.Anything, 999).Return(model.Tournament{}, errors.New("not found"))
 
 		// Create Request
 		body := new(bytes.Buffer)
@@ -92,7 +92,7 @@ func TestSportService_Create(t *testing.T) {
 		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
 
 		// Mock Tournament GetByID
-		mockTournamentRepo.On("GetByID", 1).Return(model.Tournament{ID: 1}, nil)
+		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1}, nil)
 
 		// Create Request with a "large" image (simulated)
 		body := new(bytes.Buffer)
@@ -129,7 +129,7 @@ func TestSportService_Create(t *testing.T) {
 		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
 
 		expectedSport := model.Sport{ID: 1, Name: "Futsal"}
-		mockSportRepo.On("GetByID", 1).Return(expectedSport, nil)
+		mockSportRepo.On("GetByID", mock.Anything, 1).Return(expectedSport, nil)
 
 		req := httptest.NewRequest("GET", "/sport/1", nil)
 		

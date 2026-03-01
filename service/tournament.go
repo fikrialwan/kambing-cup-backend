@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,8 +26,8 @@ func NewTournamentService(tournamentRepo repository.TournamentRepository) *Tourn
 	return &TournamentService{tournamentRepo: tournamentRepo}
 }
 
-func (s *TournamentService) GetAll(w http.ResponseWriter, _ *http.Request) {
-	tournaments, err := s.tournamentRepo.GetAll()
+func (s *TournamentService) GetAll(w http.ResponseWriter, r *http.Request) {
+	tournaments, err := s.tournamentRepo.GetAll(r.Context())
 
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -42,7 +43,25 @@ func (s *TournamentService) GetAll(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(2 * 1024 * 1024)
+	start := time.Now()
+	defer func() {
+		log.Printf("Create tournament took %v", time.Since(start))
+	}()
+
+	// Limit the total request size to prevent reading very large files into memory or temp files.
+	const maxRequestSize = 3 * 1024 * 1024
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	if err := r.ParseMultipartForm(maxRequestSize); err != nil {
+		if strings.Contains(err.Error(), "request body too large") {
+			http.Error(w, "Request body too large (max 3MB)", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
+	log.Printf("ParseMultipartForm took %v", time.Since(start))
+	checkpoint := time.Now()
 
 	var tournament model.Tournament
 
@@ -56,10 +75,12 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.tournamentRepo.GetBySlug(tournament.Slug); err == nil {
+	if _, err := s.tournamentRepo.GetBySlug(r.Context(), tournament.Slug); err == nil {
 		http.Error(w, "Slug is already taken", http.StatusBadRequest)
 		return
 	}
+	log.Printf("GetBySlug took %v", time.Since(checkpoint))
+	checkpoint = time.Now()
 
 	if r.FormValue("is_show") != "" {
 		tournament.IsShow = r.FormValue("is_show") == "true"
@@ -106,22 +127,36 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("UploadFile took %v", time.Since(checkpoint))
+	checkpoint = time.Now()
 
 	tournament.ImageUrl = fmt.Sprintf("/storage/tournament/%s", fileName)
 
-	if err := s.tournamentRepo.Create(tournament); err != nil {
+	if err := s.tournamentRepo.Create(r.Context(), tournament); err != nil {
 		log.Print(err.Error())
 		helper.DeleteFile(fmt.Sprintf("./storage/tournament/%s", fileName))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Repository Create took %v", time.Since(checkpoint))
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("Tournament created"))
 }
 
 func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(2 * 1024 * 1024)
+	// Limit the total request size to prevent reading very large files into memory or temp files.
+	const maxRequestSize = 3 * 1024 * 1024
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	if err := r.ParseMultipartForm(maxRequestSize); err != nil {
+		if strings.Contains(err.Error(), "request body too large") {
+			http.Error(w, "Request body too large (max 3MB)", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
 
 	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
@@ -145,7 +180,7 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if tournamentTemp, err := s.tournamentRepo.GetBySlug(tournament.Slug); err == nil && tournamentTemp.ID != idInt {
+	if tournamentTemp, err := s.tournamentRepo.GetBySlug(r.Context(), tournament.Slug); err == nil && tournamentTemp.ID != idInt {
 		http.Error(w, "Slug is already taken", http.StatusBadRequest)
 		return
 	}
@@ -192,7 +227,7 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 		tournament.ImageUrl = fmt.Sprintf("/storage/tournament/%s", fileName)
 	}
 
-	if err := s.tournamentRepo.Update(tournament); err != nil {
+	if err := s.tournamentRepo.Update(r.Context(), tournament); err != nil {
 		log.Print(err.Error())
 		if fileName != "" {
 			helper.DeleteFile(fmt.Sprintf("./storage/tournament/%s", fileName))
@@ -214,7 +249,7 @@ func (s *TournamentService) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.tournamentRepo.Delete(idInt); err != nil {
+	if err := s.tournamentRepo.Delete(r.Context(), idInt); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -226,7 +261,7 @@ func (s *TournamentService) Delete(w http.ResponseWriter, r *http.Request) {
 func (s *TournamentService) Get(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 
-	tournament, err := s.tournamentRepo.GetBySlug(slug)
+	tournament, err := s.tournamentRepo.GetBySlug(r.Context(), slug)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -253,7 +288,7 @@ func (s *TournamentService) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tournament, err := s.tournamentRepo.GetByID(id)
+	tournament, err := s.tournamentRepo.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)

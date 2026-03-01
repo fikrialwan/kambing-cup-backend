@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestAuthService_Login(t *testing.T) {
@@ -32,7 +33,7 @@ func TestAuthService_Login(t *testing.T) {
 		// Note: The service currently compares plain text password for simplicity in GetByEmailPassword query
 		// Adjust if you implemented hashing
 		
-		mockRepo.On("GetByEmailPassword", "admin@example.com", "password").Return(user, nil)
+		mockRepo.On("GetByEmailPassword", mock.Anything, "admin@example.com", "password").Return(user, nil)
 
 		reqBody := service.LoginRequest{
 			Email:    "admin@example.com",
@@ -57,7 +58,7 @@ func TestAuthService_Login(t *testing.T) {
 		mockRepo := new(MockUserRepository)
 		svc := service.NewAuthService(mockRepo)
 
-		mockRepo.On("GetByEmailPassword", "admin@example.com", "wrong").Return(model.User{}, errors.New("invalid"))
+		mockRepo.On("GetByEmailPassword", mock.Anything, "admin@example.com", "wrong").Return(model.User{}, errors.New("invalid"))
 
 		reqBody := service.LoginRequest{
 			Email:    "admin@example.com",

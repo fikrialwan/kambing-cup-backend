@@ -18,7 +18,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		mockRepo := new(MockUserRepository)
 		svc := service.NewUserService(mockRepo)
 
-		mockRepo.On("Create", mock.AnythingOfType("model.CreateUserRequest")).Return(nil)
+		mockRepo.On("Create", mock.Anything, mock.AnythingOfType("model.CreateUserRequest")).Return(nil)
 
 		reqBody := model.CreateUserRequest{
 			Username: "testuser",
@@ -64,7 +64,7 @@ func TestUserService_GetUser(t *testing.T) {
 		svc := service.NewUserService(mockRepo)
 
 		expectedUser := model.User{ID: 1, Username: "testuser"}
-		mockRepo.On("GetById", 1).Return(expectedUser, nil)
+		mockRepo.On("GetById", mock.Anything, 1).Return(expectedUser, nil)
 
 		req := httptest.NewRequest("GET", "/user", nil)
 		req.Header.Set("x-user-id", "1")

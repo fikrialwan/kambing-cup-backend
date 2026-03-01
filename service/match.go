@@ -60,7 +60,7 @@ func NewMatchService(matchRepo repository.MatchRepository, sportRepo repository.
 }
 
 func (s *MatchService) GetAll(w http.ResponseWriter, r *http.Request) {
-	matches, err := s.matchRepo.GetAll()
+	matches, err := s.matchRepo.GetAll(r.Context())
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -80,7 +80,7 @@ func (s *MatchService) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	match, err := s.matchRepo.GetByID(id)
+	match, err := s.matchRepo.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -104,7 +104,7 @@ func (s *MatchService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.matchRepo.Create(match); err != nil {
+	if err := s.matchRepo.Create(r.Context(), match); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -127,7 +127,7 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	match.ID = id
 
-	if err := s.matchRepo.Update(match); err != nil {
+	if err := s.matchRepo.Update(r.Context(), match); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -143,7 +143,7 @@ func (s *MatchService) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.matchRepo.Delete(id); err != nil {
+	if err := s.matchRepo.Delete(r.Context(), id); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -181,13 +181,13 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sport, err := s.sportRepo.GetByID(req.SportID)
+	sport, err := s.sportRepo.GetByID(r.Context(), req.SportID)
 	if err != nil {
 		http.Error(w, "Sport not found", http.StatusNotFound)
 		return
 	}
 
-	tournament, err := s.tournamentRepo.GetByID(sport.TournamentID)
+	tournament, err := s.tournamentRepo.GetByID(r.Context(), sport.TournamentID)
 	if err != nil {
 		http.Error(w, "Tournament not found", http.StatusNotFound)
 		return
@@ -352,7 +352,7 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 
 	// Save to Postgres
 	for _, m := range matches {
-		if err := s.matchRepo.Create(m); err != nil {
+		if err := s.matchRepo.Create(r.Context(), m); err != nil {
 			// Log error but continue? Or fail?
 			// Better to fail, but rolling back might be hard without transaction.
 			// Ideally matchRepo should support BulkCreate or Transaction.
@@ -364,7 +364,7 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 	// Save to Firebase
 	path := fmt.Sprintf("%s/sports/%s/matches", tournament.Slug, sport.Slug)
 	ref := s.firebaseDb.NewRef(path)
-	if err := ref.Set(context.Background(), firebaseMatches); err != nil {
+	if err := ref.Set(r.Context(), firebaseMatches); err != nil {
 		http.Error(w, "Error saving to Firebase: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

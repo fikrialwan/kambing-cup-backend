@@ -108,14 +108,14 @@ func createSuperadminAccount(pool *pgxpool.Pool) {
 	userRepo := repository.NewUserRepository(pool)
 
 	// Check if yourusername already exists
-	exists, err := userRepo.SuperadminExists()
+	exists, err := userRepo.SuperadminExists(context.Background())
 	if err != nil {
 		log.Printf("Failed to check for existing yourusername: %v", err)
 		return
 	}
 
 	if exists {
-		user, err := userRepo.GetSuperadminByUsername(username)
+		user, err := userRepo.GetSuperadminByUsername(context.Background(), username)
 		if err != nil {
 			if err == pgx.ErrNoRows {
 				log.Println("Superadmin account already exists, but with a different username, skipping creation")
@@ -127,7 +127,7 @@ func createSuperadminAccount(pool *pgxpool.Pool) {
 
 		if user.Email == "" {
 			log.Println("Superadmin account exists without an email, updating...")
-			err := userRepo.UpdateSuperadminEmail(user.ID, email)
+			err := userRepo.UpdateSuperadminEmail(context.Background(), user.ID, email)
 			if err != nil {
 				log.Printf("Failed to update yourusername email: %v", err)
 				return
@@ -140,7 +140,7 @@ func createSuperadminAccount(pool *pgxpool.Pool) {
 	}
 
 	// Create yourusername account
-	err = userRepo.CreateSuperadmin(username, email, password)
+	err = userRepo.CreateSuperadmin(context.Background(), username, email, password)
 	if err != nil {
 		log.Printf("Failed to create yourusername account: %v", err)
 		return

@@ -24,7 +24,7 @@ func TestMatchService_Create(t *testing.T) {
 
 		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTournamentRepo, mockFirebase)
 
-		mockMatchRepo.On("Create", mock.AnythingOfType("model.Match")).Return(nil)
+		mockMatchRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Match")).Return(nil)
 
 		reqBody := model.Match{
 			SportID:   1,
@@ -53,7 +53,7 @@ func TestMatchService_GetByID(t *testing.T) {
 		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTournamentRepo, mockFirebase)
 
 		expectedMatch := model.Match{ID: 1, SportID: 1}
-		mockMatchRepo.On("GetByID", 1).Return(expectedMatch, nil)
+		mockMatchRepo.On("GetByID", mock.Anything, 1).Return(expectedMatch, nil)
 
 		req := httptest.NewRequest("GET", "/match/1", nil)
 		rctx := chi.NewRouteContext()
@@ -79,8 +79,8 @@ func TestMatchService_Generate(t *testing.T) {
 		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTournamentRepo, mockFirebase)
 
 		// Setup mocks
-		mockSportRepo.On("GetByID", 1).Return(model.Sport{ID: 1, TournamentID: 1, Slug: "futsal"}, nil)
-		mockTournamentRepo.On("GetByID", 1).Return(model.Tournament{ID: 1, Slug: "agi-15"}, nil)
+		mockSportRepo.On("GetByID", mock.Anything, 1).Return(model.Sport{ID: 1, TournamentID: 1, Slug: "futsal"}, nil)
+		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1, Slug: "agi-15"}, nil)
 		
 		// For Generate, it creates multiple matches. We mock Create to return nil for any match.
 		// Since team_count is 4, it generates:
@@ -88,7 +88,7 @@ func TestMatchService_Generate(t *testing.T) {
 		// Final (1)
 		// Semis (11, 12)
 		// Total 4 matches.
-		mockMatchRepo.On("Create", mock.AnythingOfType("model.Match")).Return(nil)
+		mockMatchRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Match")).Return(nil)
 
 		// Firebase mocks
 		// It creates a ref at "agi-15/sports/futsal/matches"

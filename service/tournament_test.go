@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestTournamentService_Get(t *testing.T) {
@@ -18,7 +19,7 @@ func TestTournamentService_Get(t *testing.T) {
 		svc := service.NewTournamentService(mockRepo)
 
 		expectedTournament := model.Tournament{ID: 1, Name: "AGI 15", Slug: "agi-15"}
-		mockRepo.On("GetBySlug", "agi-15").Return(expectedTournament, nil)
+		mockRepo.On("GetBySlug", mock.Anything, "agi-15").Return(expectedTournament, nil)
 
 		req := httptest.NewRequest("GET", "/tournament/agi-15", nil)
 		rctx := chi.NewRouteContext()

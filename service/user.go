@@ -24,8 +24,8 @@ func (s *UserService) checkRole(role string) bool {
 	return role == "ADMIN" || role == "SUPERADMIN"
 }
 
-func (s *UserService) ListUser(w http.ResponseWriter, _ *http.Request) {
-	users, err := s.userRepo.GetAll()
+func (s *UserService) ListUser(w http.ResponseWriter, r *http.Request) {
+	users, err := s.userRepo.GetAll(r.Context())
 
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -49,7 +49,7 @@ func (s *UserService) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.userRepo.GetById(id)
+	user, err := s.userRepo.GetById(r.Context(), id)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -86,7 +86,7 @@ func (s *UserService) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.userRepo.Create(user); err != nil {
+	if err := s.userRepo.Create(r.Context(), user); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -122,7 +122,7 @@ func (s *UserService) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = s.userRepo.GetById(user.ID)
+	_, err = s.userRepo.GetById(r.Context(), user.ID)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -134,7 +134,7 @@ func (s *UserService) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.userRepo.Update(user); err != nil {
+	if err := s.userRepo.Update(r.Context(), user); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -152,7 +152,7 @@ func (s *UserService) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.userRepo.Delete(idInt); err != nil {
+	if err := s.userRepo.Delete(r.Context(), idInt); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

@@ -21,7 +21,7 @@ func NewTeamService(teamRepo repository.TeamRepository) *TeamService {
 }
 
 func (s *TeamService) GetAll(w http.ResponseWriter, r *http.Request) {
-	teams, err := s.teamRepo.GetAll()
+	teams, err := s.teamRepo.GetAll(r.Context())
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -41,7 +41,7 @@ func (s *TeamService) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	team, err := s.teamRepo.GetByID(id)
+	team, err := s.teamRepo.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -65,7 +65,7 @@ func (s *TeamService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.teamRepo.Create(team); err != nil {
+	if err := s.teamRepo.Create(r.Context(), team); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -88,7 +88,7 @@ func (s *TeamService) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	team.ID = id
 
-	if err := s.teamRepo.Update(team); err != nil {
+	if err := s.teamRepo.Update(r.Context(), team); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -104,7 +104,7 @@ func (s *TeamService) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.teamRepo.Delete(id); err != nil {
+	if err := s.teamRepo.Delete(r.Context(), id); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

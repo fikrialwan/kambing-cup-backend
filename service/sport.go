@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,7 +28,7 @@ func NewSportService(sportRepo repository.SportRepository, tournamentRepo reposi
 }
 
 func (s *SportService) GetAll(w http.ResponseWriter, r *http.Request) {
-	sports, err := s.sportRepo.GetAll()
+	sports, err := s.sportRepo.GetAll(r.Context())
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -47,7 +48,7 @@ func (s *SportService) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sport, err := s.sportRepo.GetByID(id)
+	sport, err := s.sportRepo.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -65,7 +66,25 @@ func (s *SportService) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(2 * 1024 * 1024)
+	start := time.Now()
+	defer func() {
+		log.Printf("Create sport took %v", time.Since(start))
+	}()
+
+	// Limit the total request size to prevent reading very large files into memory or temp files.
+	const maxRequestSize = 3 * 1024 * 1024
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	if err := r.ParseMultipartForm(maxRequestSize); err != nil {
+		if strings.Contains(err.Error(), "request body too large") {
+			http.Error(w, "Request body too large (max 3MB)", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
+	log.Printf("ParseMultipartForm took %v", time.Since(start))
+	checkpoint := time.Now()
 
 	var sport model.Sport
 
@@ -77,7 +96,7 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 	sport.TournamentID = tournamentID
 
 	// Validate tournament exists
-	if _, err := s.tournamentRepo.GetByID(tournamentID); err != nil {
+	if _, err := s.tournamentRepo.GetByID(r.Context(), tournamentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "Tournament not found", http.StatusBadRequest)
 			return
@@ -85,6 +104,8 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Tournament validation took %v", time.Since(checkpoint))
+	checkpoint = time.Now()
 
 	if r.FormValue("name") != "" {
 		sport.Name = r.FormValue("name")
@@ -116,8 +137,10 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		sport.ImageUrl = fmt.Sprintf("/storage/sport/%s", fileName)
 	}
+	log.Printf("File handling took %v", time.Since(checkpoint))
+	checkpoint = time.Now()
 
-	if err := s.sportRepo.Create(sport); err != nil {
+	if err := s.sportRepo.Create(r.Context(), sport); err != nil {
 		log.Print(err.Error())
 		if sport.ImageUrl != "" {
 			helper.DeleteFile(fmt.Sprintf(".%s", sport.ImageUrl))
@@ -125,13 +148,25 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Repository Create took %v", time.Since(checkpoint))
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("Sport created"))
 }
 
 func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(2 * 1024 * 1024)
+	// Limit the total request size to prevent reading very large files into memory or temp files.
+	const maxRequestSize = 3 * 1024 * 1024
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	if err := r.ParseMultipartForm(maxRequestSize); err != nil {
+		if strings.Contains(err.Error(), "request body too large") {
+			http.Error(w, "Request body too large (max 3MB)", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
 
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
@@ -150,7 +185,7 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 	sport.TournamentID = tournamentID
 
 	// Validate tournament exists
-	if _, err := s.tournamentRepo.GetByID(tournamentID); err != nil {
+	if _, err := s.tournamentRepo.GetByID(r.Context(), tournamentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "Tournament not found", http.StatusBadRequest)
 			return
@@ -190,7 +225,7 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 		sport.ImageUrl = fmt.Sprintf("/storage/sport/%s", fileName)
 	}
 
-	if err := s.sportRepo.Update(sport); err != nil {
+	if err := s.sportRepo.Update(r.Context(), sport); err != nil {
 		log.Print(err.Error())
 		if sport.ImageUrl != "" {
 			helper.DeleteFile(fmt.Sprintf(".%s", sport.ImageUrl))
@@ -210,7 +245,7 @@ func (s *SportService) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.sportRepo.Delete(id); err != nil {
+	if err := s.sportRepo.Delete(r.Context(), id); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

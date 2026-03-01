@@ -20,7 +20,7 @@ func TestTeamService_Create(t *testing.T) {
 		mockRepo := new(MockTeamRepository)
 		svc := service.NewTeamService(mockRepo)
 
-		mockRepo.On("Create", mock.AnythingOfType("model.Team")).Return(nil)
+		mockRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Team")).Return(nil)
 
 		reqBody := model.Team{
 			Name:    "Team A",
@@ -44,7 +44,7 @@ func TestTeamService_GetByID(t *testing.T) {
 		svc := service.NewTeamService(mockRepo)
 
 		expectedTeam := model.Team{ID: 1, Name: "Team A", SportID: 1}
-		mockRepo.On("GetByID", 1).Return(expectedTeam, nil)
+		mockRepo.On("GetByID", mock.Anything, 1).Return(expectedTeam, nil)
 
 		req := httptest.NewRequest("GET", "/team/1", nil)
 		rctx := chi.NewRouteContext()

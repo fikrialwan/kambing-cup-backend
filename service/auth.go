@@ -42,7 +42,7 @@ func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, err := s.userRepo.GetByEmailPassword(loginRequest.Email, loginRequest.Password)
+	users, err := s.userRepo.GetByEmailPassword(r.Context(), loginRequest.Email, loginRequest.Password)
 
 	if err != nil {
 		log.Default().Println(err.Error())
