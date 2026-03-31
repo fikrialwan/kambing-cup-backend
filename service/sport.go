@@ -127,6 +127,21 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var isDeleted bool
+	if existing, err := s.sportRepo.GetByNameAndTournamentWithDeleted(r.Context(), sport.Name, sport.TournamentID); err == nil {
+		if existing.DeletedAt == nil {
+			http.Error(w, "Sport name is already taken in this tournament", http.StatusBadRequest)
+			return
+		}
+		isDeleted = true
+		sport.ID = existing.ID
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	log.Printf("GetByNameAndTournamentWithDeleted took %v", time.Since(checkpoint))
+	checkpoint = time.Now()
+
 	file, handler, err := r.FormFile("image")
 	if err == nil {
 		if !helper.IsImage(handler) {
@@ -153,18 +168,30 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 	log.Printf("File handling took %v", time.Since(checkpoint))
 	checkpoint = time.Now()
 
-	if err := s.sportRepo.Create(r.Context(), sport); err != nil {
-		log.Print(err.Error())
-		if sport.ImageUrl != "" {
-			helper.DeleteFile(filepath.Join(s.storagePath, sport.ImageUrl))
+	if isDeleted {
+		if err := s.sportRepo.Restore(r.Context(), sport); err != nil {
+			log.Print(err.Error())
+			if sport.ImageUrl != "" {
+				helper.DeleteFile(filepath.Join(s.storagePath, sport.ImageUrl))
+			}
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Sport restored"))
+	} else {
+		if err := s.sportRepo.Create(r.Context(), sport); err != nil {
+			log.Print(err.Error())
+			if sport.ImageUrl != "" {
+				helper.DeleteFile(filepath.Join(s.storagePath, sport.ImageUrl))
+			}
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("Sport created"))
 	}
-	log.Printf("Repository Create took %v", time.Since(checkpoint))
-
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Sport created"))
+	log.Printf("Repository operation took %v", time.Since(checkpoint))
 }
 
 func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {

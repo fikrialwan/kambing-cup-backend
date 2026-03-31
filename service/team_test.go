@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -20,6 +21,7 @@ func TestTeamService_Create(t *testing.T) {
 		mockRepo := new(MockTeamRepository)
 		svc := service.NewTeamService(mockRepo)
 
+		mockRepo.On("GetByNameAndSportWithDeleted", mock.Anything, "Team A", 1).Return(model.Team{}, pgx.ErrNoRows)
 		mockRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Team")).Return(nil)
 
 		reqBody := model.Team{

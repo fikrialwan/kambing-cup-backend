@@ -65,13 +65,39 @@ func (s *TeamService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.teamRepo.Create(r.Context(), team); err != nil {
+	if team.Name == "" || team.SportID == 0 {
+		http.Error(w, "Name and Sport ID are required", http.StatusBadRequest)
+		return
+	}
+
+	var isDeleted bool
+	if existing, err := s.teamRepo.GetByNameAndSportWithDeleted(r.Context(), team.Name, team.SportID); err == nil {
+		if existing.DeletedAt == nil {
+			http.Error(w, "Team name is already taken in this sport", http.StatusBadRequest)
+			return
+		}
+		isDeleted = true
+		team.ID = existing.ID
+	} else if !errors.Is(err, pgx.ErrNoRows) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Team created"))
+	if isDeleted {
+		if err := s.teamRepo.Restore(r.Context(), team); err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Team restored"))
+	} else {
+		if err := s.teamRepo.Create(r.Context(), team); err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("Team created"))
+	}
 }
 
 func (s *TeamService) Update(w http.ResponseWriter, r *http.Request) {

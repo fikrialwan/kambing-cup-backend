@@ -16,6 +16,8 @@ type SportRepository interface {
 	GetByID(ctx context.Context, id int) (model.Sport, error)
 	Update(ctx context.Context, sport model.Sport) error
 	Delete(ctx context.Context, id int) error
+	GetByNameAndTournamentWithDeleted(ctx context.Context, name string, tournamentID int) (model.Sport, error)
+	Restore(ctx context.Context, sport model.Sport) error
 }
 
 type sportRepository struct {
@@ -73,5 +75,16 @@ func (r *sportRepository) Update(ctx context.Context, sport model.Sport) error {
 
 func (r *sportRepository) Delete(ctx context.Context, id int) error {
 	_, err := r.pool.Exec(ctx, "UPDATE sports SET deleted_at = $1 WHERE id = $2", time.Now(), id)
+	return err
+}
+
+func (r *sportRepository) GetByNameAndTournamentWithDeleted(ctx context.Context, name string, tournamentID int) (model.Sport, error) {
+	var sport model.Sport
+	err := r.pool.QueryRow(ctx, "SELECT id, tournament_id, name, slug, image_url, created_at, updated_at, deleted_at FROM sports WHERE name = $1 AND tournament_id = $2", name, tournamentID).Scan(&sport.ID, &sport.TournamentID, &sport.Name, &sport.Slug, &sport.ImageUrl, &sport.CreatedAt, &sport.UpdatedAt, &sport.DeletedAt)
+	return sport, err
+}
+
+func (r *sportRepository) Restore(ctx context.Context, sport model.Sport) error {
+	_, err := r.pool.Exec(ctx, "UPDATE sports SET slug = $1, image_url = $2, updated_at = $3, deleted_at = NULL WHERE id = $4", sport.Slug, sport.ImageUrl, time.Now(), sport.ID)
 	return err
 }

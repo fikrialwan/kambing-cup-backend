@@ -20,6 +20,8 @@ type UserRepository interface {
 	CreateSuperadmin(ctx context.Context, username, email, password string) error
 	GetSuperadminByUsername(ctx context.Context, username string) (model.User, error)
 	UpdateSuperadminEmail(ctx context.Context, id int, email string) error
+	GetByUsernameOrEmailWithDeleted(ctx context.Context, username, email string) (model.User, error)
+	Restore(ctx context.Context, user model.User) error
 }
 
 type userRepository struct {
@@ -101,5 +103,16 @@ func (u *userRepository) GetSuperadminByUsername(ctx context.Context, username s
 
 func (u *userRepository) UpdateSuperadminEmail(ctx context.Context, id int, email string) error {
 	_, err := u.pool.Exec(ctx, "UPDATE users SET email = $1, updated_at = $2 WHERE id = $3", email, time.Now(), id)
+	return err
+}
+
+func (u *userRepository) GetByUsernameOrEmailWithDeleted(ctx context.Context, username, email string) (model.User, error) {
+	var user model.User
+	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at, deleted_at FROM users WHERE username = $1 OR email = $2", username, email).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	return user, err
+}
+
+func (u *userRepository) Restore(ctx context.Context, user model.User) error {
+	_, err := u.pool.Exec(ctx, "UPDATE users SET password = $1, role = $2, updated_at = $3, deleted_at = NULL WHERE id = $4", user.Password, user.Role, time.Now(), user.ID)
 	return err
 }

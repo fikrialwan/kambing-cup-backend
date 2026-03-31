@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -28,6 +29,9 @@ func TestSportService_Create(t *testing.T) {
 
 		// Mock Tournament GetByID
 		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1}, nil)
+
+		// Mock Sport Check
+		mockSportRepo.On("GetByNameAndTournamentWithDeleted", mock.Anything, "Futsal", 1).Return(model.Sport{}, pgx.ErrNoRows)
 
 		// Mock Sport Create
 		mockSportRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Sport")).Return(nil)
@@ -88,6 +92,9 @@ func TestSportService_Create(t *testing.T) {
 
 		// Mock Tournament GetByID
 		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1}, nil)
+
+		// Mock Sport Check
+		mockSportRepo.On("GetByNameAndTournamentWithDeleted", mock.Anything, "Futsal", 1).Return(model.Sport{}, pgx.ErrNoRows)
 
 		// Create Request with a "large" image (simulated)
 		body := new(bytes.Buffer)

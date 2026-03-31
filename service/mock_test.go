@@ -4,6 +4,7 @@ import (
 	"context"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/service"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -34,6 +35,16 @@ func (m *MockSportRepository) Update(ctx context.Context, sport model.Sport) err
 
 func (m *MockSportRepository) Delete(ctx context.Context, id int) error {
 	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockSportRepository) GetByNameAndTournamentWithDeleted(ctx context.Context, name string, tournamentID int) (model.Sport, error) {
+	args := m.Called(ctx, name, tournamentID)
+	return args.Get(0).(model.Sport), args.Error(1)
+}
+
+func (m *MockSportRepository) Restore(ctx context.Context, sport model.Sport) error {
+	args := m.Called(ctx, sport)
 	return args.Error(0)
 }
 
@@ -102,6 +113,16 @@ func (m *MockUserRepository) GetById(ctx context.Context, id int) (model.User, e
 	return args.Get(0).(model.User), args.Error(1)
 }
 
+func (m *MockUserRepository) GetByUsernameOrEmailWithDeleted(ctx context.Context, username, email string) (model.User, error) {
+	args := m.Called(ctx, username, email)
+	return args.Get(0).(model.User), args.Error(1)
+}
+
+func (m *MockUserRepository) Restore(ctx context.Context, user model.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
 func (m *MockUserRepository) Create(ctx context.Context, user model.CreateUserRequest) error {
 	args := m.Called(ctx, user)
 	return args.Error(0)
@@ -164,6 +185,16 @@ func (m *MockTeamRepository) Update(ctx context.Context, team model.Team) error 
 
 func (m *MockTeamRepository) Delete(ctx context.Context, id int) error {
 	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockTeamRepository) GetByNameAndSportWithDeleted(ctx context.Context, name string, sportID int) (model.Team, error) {
+	args := m.Called(ctx, name, sportID)
+	return args.Get(0).(model.Team), args.Error(1)
+}
+
+func (m *MockTeamRepository) Restore(ctx context.Context, team model.Team) error {
+	args := m.Called(ctx, team)
 	return args.Error(0)
 }
 

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -18,6 +19,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		mockRepo := new(MockUserRepository)
 		svc := service.NewUserService(mockRepo)
 
+		mockRepo.On("GetByUsernameOrEmailWithDeleted", mock.Anything, "testuser", "test@example.com").Return(model.User{}, pgx.ErrNoRows)
 		mockRepo.On("Create", mock.Anything, mock.AnythingOfType("model.CreateUserRequest")).Return(nil)
 
 		reqBody := model.CreateUserRequest{
