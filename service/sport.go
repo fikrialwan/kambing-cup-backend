@@ -21,10 +21,11 @@ import (
 type SportService struct {
 	sportRepo      repository.SportRepository
 	tournamentRepo repository.TournamentRepository
+	storagePath    string
 }
 
-func NewSportService(sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository) *SportService {
-	return &SportService{sportRepo: sportRepo, tournamentRepo: tournamentRepo}
+func NewSportService(sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository, storagePath string) *SportService {
+	return &SportService{sportRepo: sportRepo, tournamentRepo: tournamentRepo, storagePath: storagePath}
 }
 
 func (s *SportService) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -140,9 +141,10 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 
 		fileName := fmt.Sprintf("%s-%d%s", sport.Slug, time.Now().UnixNano(), filepath.Ext(handler.Filename))
 
-		helper.CheckDirectory("./storage/sport")
+		sportDir := filepath.Join(s.storagePath, "storage", "sport")
+		helper.CheckDirectory(sportDir)
 
-		if err := helper.UploadFile(&file, "./storage/sport", fileName); err != nil {
+		if err := helper.UploadFile(&file, sportDir, fileName); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
@@ -154,7 +156,7 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 	if err := s.sportRepo.Create(r.Context(), sport); err != nil {
 		log.Print(err.Error())
 		if sport.ImageUrl != "" {
-			helper.DeleteFile(fmt.Sprintf(".%s", sport.ImageUrl))
+			helper.DeleteFile(filepath.Join(s.storagePath, sport.ImageUrl))
 		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -227,9 +229,10 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 
 		fileName := fmt.Sprintf("%s-%d%s", sport.Slug, time.Now().UnixNano(), filepath.Ext(handler.Filename))
 
-		helper.CheckDirectory("./storage/sport")
+		sportDir := filepath.Join(s.storagePath, "storage", "sport")
+		helper.CheckDirectory(sportDir)
 
-		if err := helper.UploadFile(&file, "./storage/sport", fileName); err != nil {
+		if err := helper.UploadFile(&file, sportDir, fileName); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
@@ -239,7 +242,7 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 	if err := s.sportRepo.Update(r.Context(), sport); err != nil {
 		log.Print(err.Error())
 		if sport.ImageUrl != "" {
-			helper.DeleteFile(fmt.Sprintf(".%s", sport.ImageUrl))
+			helper.DeleteFile(filepath.Join(s.storagePath, sport.ImageUrl))
 		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return

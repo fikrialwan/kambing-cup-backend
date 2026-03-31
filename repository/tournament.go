@@ -16,6 +16,8 @@ type TournamentRepository interface {
 	Delete(ctx context.Context, id int) error
 	GetBySlug(ctx context.Context, slug string) (model.Tournament, error)
 	GetByID(ctx context.Context, id int) (model.Tournament, error)
+	GetBySlugWithDeleted(ctx context.Context, slug string) (model.Tournament, error)
+	Restore(ctx context.Context, tournament model.Tournament) error
 }
 
 type tournamentRepository struct {
@@ -79,4 +81,15 @@ func (T *tournamentRepository) GetByID(ctx context.Context, id int) (model.Tourn
 	var tournament model.Tournament
 	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE id = $1 AND deleted_at IS NULL", id).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
 	return tournament, err
+}
+
+func (T *tournamentRepository) GetBySlugWithDeleted(ctx context.Context, slug string) (model.Tournament, error) {
+	var tournament model.Tournament
+	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE slug = $1", slug).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
+	return tournament, err
+}
+
+func (T *tournamentRepository) Restore(ctx context.Context, tournament model.Tournament) error {
+	_, err := T.pool.Exec(ctx, "UPDATE tournaments SET name = $1, is_show = $2, is_active = $3, image_url = $4, total_surah = $5, updated_at = $6, deleted_at = NULL WHERE id = $7", tournament.Name, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, tournament.TotalSurah, time.Now(), tournament.ID)
+	return err
 }

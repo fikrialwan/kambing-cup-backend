@@ -20,10 +20,11 @@ import (
 
 type TournamentService struct {
 	tournamentRepo repository.TournamentRepository
+	storagePath    string
 }
 
-func NewTournamentService(tournamentRepo repository.TournamentRepository) *TournamentService {
-	return &TournamentService{tournamentRepo: tournamentRepo}
+func NewTournamentService(tournamentRepo repository.TournamentRepository, storagePath string) *TournamentService {
+	return &TournamentService{tournamentRepo: tournamentRepo, storagePath: storagePath}
 }
 
 func (s *TournamentService) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -75,11 +76,19 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.tournamentRepo.GetBySlug(r.Context(), tournament.Slug); err == nil {
-		http.Error(w, "Slug is already taken", http.StatusBadRequest)
+	var isDeleted bool
+	if existing, err := s.tournamentRepo.GetBySlugWithDeleted(r.Context(), tournament.Slug); err == nil {
+		if existing.DeletedAt == nil {
+			http.Error(w, "Slug is already taken", http.StatusBadRequest)
+			return
+		}
+		isDeleted = true
+		tournament.ID = existing.ID
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("GetBySlug took %v", time.Since(checkpoint))
+	log.Printf("GetBySlugWithDeleted took %v", time.Since(checkpoint))
 	checkpoint = time.Now()
 
 	if r.FormValue("is_show") != "" {
@@ -121,9 +130,10 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 
 	fileName := fmt.Sprintf("%s-%d%s", tournament.Slug, time.Now().UnixNano(), filepath.Ext(handler.Filename))
 
-	helper.CheckDirectory("./storage/tournament")
+	tournamentDir := filepath.Join(s.storagePath, "storage", "tournament")
+	helper.CheckDirectory(tournamentDir)
 
-	if err := helper.UploadFile(&file, "./storage/tournament", fileName); err != nil {
+	if err := helper.UploadFile(&file, tournamentDir, fileName); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -132,16 +142,26 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 
 	tournament.ImageUrl = fmt.Sprintf("/storage/tournament/%s", fileName)
 
-	if err := s.tournamentRepo.Create(r.Context(), tournament); err != nil {
-		log.Print(err.Error())
-		helper.DeleteFile(fmt.Sprintf("./storage/tournament/%s", fileName))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+	if isDeleted {
+		if err := s.tournamentRepo.Restore(r.Context(), tournament); err != nil {
+			log.Print(err.Error())
+			helper.DeleteFile(filepath.Join(tournamentDir, fileName))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Tournament restored"))
+	} else {
+		if err := s.tournamentRepo.Create(r.Context(), tournament); err != nil {
+			log.Print(err.Error())
+			helper.DeleteFile(filepath.Join(tournamentDir, fileName))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("Tournament created"))
 	}
-	log.Printf("Repository Create took %v", time.Since(checkpoint))
-
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Tournament created"))
+	log.Printf("Repository operation took %v", time.Since(checkpoint))
 }
 
 func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
@@ -217,9 +237,10 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 
 		fileName = fmt.Sprintf("%s-%d%s", tournament.Slug, time.Now().UnixNano(), filepath.Ext(handler.Filename))
 
-		helper.CheckDirectory("./storage/tournament")
+		tournamentDir := filepath.Join(s.storagePath, "storage", "tournament")
+		helper.CheckDirectory(tournamentDir)
 
-		if err := helper.UploadFile(&file, "./storage/tournament", fileName); err != nil {
+		if err := helper.UploadFile(&file, tournamentDir, fileName); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
@@ -230,7 +251,7 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 	if err := s.tournamentRepo.Update(r.Context(), tournament); err != nil {
 		log.Print(err.Error())
 		if fileName != "" {
-			helper.DeleteFile(fmt.Sprintf("./storage/tournament/%s", fileName))
+			helper.DeleteFile(filepath.Join(s.storagePath, tournament.ImageUrl))
 		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return

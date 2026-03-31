@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -21,7 +22,9 @@ func TestSportService_Create(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+
+		defer os.RemoveAll("./storage")
 
 		// Mock Tournament GetByID
 		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1}, nil)
@@ -52,7 +55,7 @@ func TestSportService_Create(t *testing.T) {
 	t.Run("TournamentNotFound", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
 
 		// Mock Tournament GetByID to fail
 		mockTournamentRepo.On("GetByID", mock.Anything, 999).Return(model.Tournament{}, errors.New("not found"))
@@ -70,16 +73,6 @@ func TestSportService_Create(t *testing.T) {
 
 		svc.Create(w, req)
 
-		// Expect 500 because the service returns InternalServerError for generic errors from GetByID
-		// But wait, the service checks errors.Is(err, pgx.ErrNoRows). 
-		// My mock returns a generic error. I should probably import pgx to return pgx.ErrNoRows or check how I handle generic errors.
-		// In service/sport.go:
-		// if _, err := s.tournamentRepo.GetByID(tournamentID); err != nil {
-		// 	if errors.Is(err, pgx.ErrNoRows) { ... }
-		// 	http.Error(w, http.StatusText(http.StatusInternalServerError), ...)
-		// }
-		// So generic error -> 500.
-		
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 		mockTournamentRepo.AssertExpectations(t)
@@ -89,7 +82,9 @@ func TestSportService_Create(t *testing.T) {
 	t.Run("ImageSizeTooLarge", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+
+		defer os.RemoveAll("./storage")
 
 		// Mock Tournament GetByID
 		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1}, nil)
@@ -126,14 +121,13 @@ func TestSportService_Create(t *testing.T) {
 	t.Run("GetByID", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
 
 		expectedSport := model.Sport{ID: 1, Name: "Futsal"}
 		mockSportRepo.On("GetByID", mock.Anything, 1).Return(expectedSport, nil)
 
 		req := httptest.NewRequest("GET", "/sport/1", nil)
 		
-		// We need to inject chi context for URLParam
 		rctx := chi.NewRouteContext()
 		rctx.URLParams.Add("id", "1")
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
@@ -143,7 +137,6 @@ func TestSportService_Create(t *testing.T) {
 		svc.GetByID(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		// Check body content if needed
 	})
 }
 
@@ -151,7 +144,7 @@ func TestSportService_GetAll(t *testing.T) {
 	t.Run("SuccessWithoutFilter", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
 
 		expectedSports := []model.Sport{{ID: 1, Name: "Futsal"}}
 		mockSportRepo.On("GetAll", mock.Anything, 0).Return(expectedSports, nil)
@@ -168,7 +161,7 @@ func TestSportService_GetAll(t *testing.T) {
 	t.Run("SuccessWithFilter", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
 
 		expectedSports := []model.Sport{{ID: 1, TournamentID: 1, Name: "Futsal"}}
 		mockSportRepo.On("GetAll", mock.Anything, 1).Return(expectedSports, nil)
@@ -185,7 +178,7 @@ func TestSportService_GetAll(t *testing.T) {
 	t.Run("InvalidFilter", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
 
 		req := httptest.NewRequest("GET", "/sport?tournamentId=abc", nil)
 		w := httptest.NewRecorder()

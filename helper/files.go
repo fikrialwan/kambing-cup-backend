@@ -48,7 +48,7 @@ func ValidateImageSize(file *multipart.FileHeader, maxSize int64) bool {
 
 func CheckDirectory(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		err := os.Mkdir(path, 0755)
+		err := os.MkdirAll(path, 0755)
 		if err != nil {
 			log.Fatal(err.Error())
 		}

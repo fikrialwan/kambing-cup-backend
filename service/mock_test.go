@@ -72,6 +72,16 @@ func (m *MockTournamentRepository) GetByID(ctx context.Context, id int) (model.T
 	return args.Get(0).(model.Tournament), args.Error(1)
 }
 
+func (m *MockTournamentRepository) GetBySlugWithDeleted(ctx context.Context, slug string) (model.Tournament, error) {
+	args := m.Called(ctx, slug)
+	return args.Get(0).(model.Tournament), args.Error(1)
+}
+
+func (m *MockTournamentRepository) Restore(ctx context.Context, tournament model.Tournament) error {
+	args := m.Called(ctx, tournament)
+	return args.Error(0)
+}
+
 // MockUserRepository
 type MockUserRepository struct {
 	mock.Mock
