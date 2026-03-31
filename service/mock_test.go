@@ -17,8 +17,8 @@ func (m *MockSportRepository) Create(ctx context.Context, sport model.Sport) err
 	return args.Error(0)
 }
 
-func (m *MockSportRepository) GetAll(ctx context.Context) ([]model.Sport, error) {
-	args := m.Called(ctx)
+func (m *MockSportRepository) GetAll(ctx context.Context, tournamentID int) ([]model.Sport, error) {
+	args := m.Called(ctx, tournamentID)
 	return args.Get(0).([]model.Sport), args.Error(1)
 }
 

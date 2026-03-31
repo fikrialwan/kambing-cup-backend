@@ -6,12 +6,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type SportRepository interface {
 	Create(ctx context.Context, sport model.Sport) error
-	GetAll(ctx context.Context) ([]model.Sport, error)
+	GetAll(ctx context.Context, tournamentID int) ([]model.Sport, error)
 	GetByID(ctx context.Context, id int) (model.Sport, error)
 	Update(ctx context.Context, sport model.Sport) error
 	Delete(ctx context.Context, id int) error
@@ -30,9 +31,17 @@ func (r *sportRepository) Create(ctx context.Context, sport model.Sport) error {
 	return err
 }
 
-func (r *sportRepository) GetAll(ctx context.Context) ([]model.Sport, error) {
+func (r *sportRepository) GetAll(ctx context.Context, tournamentID int) ([]model.Sport, error) {
 	var sports []model.Sport
-	rows, err := r.pool.Query(ctx, "SELECT id, tournament_id, name, slug, image_url, created_at, updated_at, deleted_at FROM sports WHERE deleted_at IS NULL")
+	var rows pgx.Rows
+	var err error
+
+	if tournamentID != 0 {
+		rows, err = r.pool.Query(ctx, "SELECT id, tournament_id, name, slug, image_url, created_at, updated_at, deleted_at FROM sports WHERE tournament_id = $1 AND deleted_at IS NULL", tournamentID)
+	} else {
+		rows, err = r.pool.Query(ctx, "SELECT id, tournament_id, name, slug, image_url, created_at, updated_at, deleted_at FROM sports WHERE deleted_at IS NULL")
+	}
+
 	if err != nil {
 		log.Print(err.Error())
 		return sports, err

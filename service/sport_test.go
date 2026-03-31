@@ -146,3 +146,53 @@ func TestSportService_Create(t *testing.T) {
 		// Check body content if needed
 	})
 }
+
+func TestSportService_GetAll(t *testing.T) {
+	t.Run("SuccessWithoutFilter", func(t *testing.T) {
+		mockSportRepo := new(MockSportRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+
+		expectedSports := []model.Sport{{ID: 1, Name: "Futsal"}}
+		mockSportRepo.On("GetAll", mock.Anything, 0).Return(expectedSports, nil)
+
+		req := httptest.NewRequest("GET", "/sport", nil)
+		w := httptest.NewRecorder()
+
+		svc.GetAll(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockSportRepo.AssertExpectations(t)
+	})
+
+	t.Run("SuccessWithFilter", func(t *testing.T) {
+		mockSportRepo := new(MockSportRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+
+		expectedSports := []model.Sport{{ID: 1, TournamentID: 1, Name: "Futsal"}}
+		mockSportRepo.On("GetAll", mock.Anything, 1).Return(expectedSports, nil)
+
+		req := httptest.NewRequest("GET", "/sport?tournamentId=1", nil)
+		w := httptest.NewRecorder()
+
+		svc.GetAll(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockSportRepo.AssertExpectations(t)
+	})
+
+	t.Run("InvalidFilter", func(t *testing.T) {
+		mockSportRepo := new(MockSportRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo)
+
+		req := httptest.NewRequest("GET", "/sport?tournamentId=abc", nil)
+		w := httptest.NewRecorder()
+
+		svc.GetAll(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "Invalid Tournament ID")
+	})
+}

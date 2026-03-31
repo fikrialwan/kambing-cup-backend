@@ -28,7 +28,18 @@ func NewSportService(sportRepo repository.SportRepository, tournamentRepo reposi
 }
 
 func (s *SportService) GetAll(w http.ResponseWriter, r *http.Request) {
-	sports, err := s.sportRepo.GetAll(r.Context())
+	tournamentIDStr := r.URL.Query().Get("tournamentId")
+	var tournamentID int
+	var err error
+	if tournamentIDStr != "" {
+		tournamentID, err = strconv.Atoi(tournamentIDStr)
+		if err != nil {
+			http.Error(w, "Invalid Tournament ID", http.StatusBadRequest)
+			return
+		}
+	}
+
+	sports, err := s.sportRepo.GetAll(r.Context(), tournamentID)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
