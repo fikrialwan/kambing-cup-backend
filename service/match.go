@@ -60,7 +60,21 @@ func NewMatchService(matchRepo repository.MatchRepository, sportRepo repository.
 }
 
 func (s *MatchService) GetAll(w http.ResponseWriter, r *http.Request) {
-	matches, err := s.matchRepo.GetAll(r.Context())
+	var matches []model.Match
+	var err error
+
+	sportIDStr := r.URL.Query().Get("sportId")
+	if sportIDStr != "" {
+		sportID, errConv := strconv.Atoi(sportIDStr)
+		if errConv != nil {
+			http.Error(w, "Invalid sportId", http.StatusBadRequest)
+			return
+		}
+		matches, err = s.matchRepo.GetBySportID(r.Context(), sportID)
+	} else {
+		matches, err = s.matchRepo.GetAll(r.Context())
+	}
+
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return

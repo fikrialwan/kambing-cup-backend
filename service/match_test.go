@@ -15,6 +15,53 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+func TestMatchService_GetAll(t *testing.T) {
+	t.Run("Success without sportId", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil)
+
+		expectedMatches := []model.Match{{ID: 1}, {ID: 2}}
+		mockMatchRepo.On("GetAll", mock.Anything).Return(expectedMatches, nil)
+
+		req := httptest.NewRequest("GET", "/match", nil)
+		w := httptest.NewRecorder()
+
+		svc.GetAll(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockMatchRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success with sportId", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil)
+
+		expectedMatches := []model.Match{{ID: 1, SportID: 1}}
+		mockMatchRepo.On("GetBySportID", mock.Anything, 1).Return(expectedMatches, nil)
+
+		req := httptest.NewRequest("GET", "/match?sportId=1", nil)
+		w := httptest.NewRecorder()
+
+		svc.GetAll(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockMatchRepo.AssertExpectations(t)
+	})
+
+	t.Run("Invalid sportId", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil)
+
+		req := httptest.NewRequest("GET", "/match?sportId=invalid", nil)
+		w := httptest.NewRecorder()
+
+		svc.GetAll(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "Invalid sportId")
+	})
+}
+
 func TestMatchService_Create(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockMatchRepo := new(MockMatchRepository)
