@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"kambing-cup-backend/helper"
 	"net/http"
 	"os"
 	"strconv"
@@ -18,7 +19,7 @@ func Auth(next http.Handler) http.Handler {
 
 		if header != "" {
 			if !strings.Contains(header, "Bearer") {
-				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+				helper.WriteResponse(w, http.StatusUnauthorized, false, nil, helper.ErrUnauthorized, http.StatusText(http.StatusUnauthorized))
 				return
 
 			}
@@ -29,7 +30,7 @@ func Auth(next http.Handler) http.Handler {
 		}
 
 		if token == "" {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			helper.WriteResponse(w, http.StatusUnauthorized, false, nil, helper.ErrUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
 
 		}
@@ -43,7 +44,7 @@ func Auth(next http.Handler) http.Handler {
 		})
 
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			helper.WriteResponse(w, http.StatusUnauthorized, false, nil, helper.ErrUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
 		}
 
@@ -61,7 +62,7 @@ func AdminAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		role := r.Header.Get("x-user-role")
 		if role != "SUPERADMIN" {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			helper.WriteResponse(w, http.StatusUnauthorized, false, nil, helper.ErrUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
 		}
 

@@ -5,6 +5,7 @@ const (
 	ErrInternalServer = "001"
 	ErrBadRequest     = "002"
 	ErrNotFound       = "003"
+	ErrUnauthorized   = "004"
 	ErrEntityTooLarge = "006"
 
 	// Tournament Errors (1xx)
