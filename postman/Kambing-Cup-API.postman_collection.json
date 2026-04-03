@@ -171,7 +171,7 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    const jsonResponse = pm.response.json();",
-									"    pm.collectionVariables.set(\"token\", \"Bearer \" + jsonResponse.token);",
+									"    pm.collectionVariables.set(\"token\", \"Bearer \" + jsonResponse.data.token);",
 									"}"
 								],
 								"type": "text/javascript",
