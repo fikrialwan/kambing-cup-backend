@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/service"
 	"net/http"
@@ -46,10 +47,13 @@ func TestAuthService_Login(t *testing.T) {
 		svc.Login(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		var resp service.LoginResponse
+		var resp helper.Response
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, resp.Token)
+		assert.True(t, resp.Success)
+		
+		dataMap := resp.Data.(map[string]interface{})
+		assert.NotEmpty(t, dataMap["token"])
 		
 		mockRepo.AssertExpectations(t)
 	})
@@ -70,7 +74,12 @@ func TestAuthService_Login(t *testing.T) {
 
 		svc.Login(w, req)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		var resp helper.Response
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.False(t, resp.Success)
+		assert.Equal(t, helper.ErrAuthInvalidCredentials, resp.ErrorCode)
 		mockRepo.AssertExpectations(t)
 	})
 }

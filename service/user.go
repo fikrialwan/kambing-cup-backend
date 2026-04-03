@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/repository"
 	"net/http"
@@ -28,16 +29,11 @@ func (s *UserService) ListUser(w http.ResponseWriter, r *http.Request) {
 	users, err := s.userRepo.GetAll(r.Context())
 
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(users); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, users, "", "Users retrieved")
 }
 
 func (s *UserService) GetUser(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +41,7 @@ func (s *UserService) GetUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(userID)
 
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, "Internal Server Error: Missing x-user-id")
 		return
 	}
 
@@ -53,36 +49,31 @@ func (s *UserService) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
 
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(user); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, user, "", "User retrieved")
 }
 
 func (s *UserService) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var userReq model.CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&userReq); err != nil {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
 		return
 	}
 
 	if userReq.Username == "" || userReq.Password == "" || userReq.Role == "" || userReq.Email == "" {
-		http.Error(w, "Username, email, password, and role are required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrUserRequiredFields, "Username, email, password, and role are required")
 		return
 	}
 
 	if !s.checkRole(userReq.Role) {
-		http.Error(w, "Role must be ADMIN or SUPERADMIN", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrUserInvalidRole, "Role must be ADMIN or SUPERADMIN")
 		return
 	}
 
@@ -90,13 +81,13 @@ func (s *UserService) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var existingUser model.User
 	if existing, err := s.userRepo.GetByUsernameOrEmailWithDeleted(r.Context(), userReq.Username, userReq.Email); err == nil {
 		if existing.DeletedAt == nil {
-			http.Error(w, "Username or email is already taken", http.StatusBadRequest)
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrUserAlreadyExists, "Username or email is already taken")
 			return
 		}
 		isDeleted = true
 		existingUser = existing
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
@@ -105,18 +96,16 @@ func (s *UserService) CreateUser(w http.ResponseWriter, r *http.Request) {
 		existingUser.Password = userReq.Password
 		existingUser.Role = userReq.Role
 		if err := s.userRepo.Restore(r.Context(), existingUser); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("User restored"))
+		helper.WriteResponse(w, http.StatusOK, true, nil, "", "User restored")
 	} else {
 		if err := s.userRepo.Create(r.Context(), userReq); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("User created"))
+		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "User created")
 	}
 }
 
@@ -126,24 +115,24 @@ func (s *UserService) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	idInt, err := strconv.Atoi(id)
 
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	user.ID = idInt
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
 		return
 	}
 
 	if user.Username == "" || user.Password == "" || user.Role == "" || user.Email == "" {
-		http.Error(w, "Username, email, password, and role are required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrUserRequiredFields, "Username, email, password, and role are required")
 		return
 	}
 
 	if !s.checkRole(user.Role) {
-		http.Error(w, "Role must be ADMIN or SUPERADMIN", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrUserInvalidRole, "Role must be ADMIN or SUPERADMIN")
 		return
 	}
 
@@ -151,21 +140,20 @@ func (s *UserService) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
 
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
 	if err := s.userRepo.Update(r.Context(), user); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("User updated"))
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "User updated")
 }
 
 func (s *UserService) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -173,15 +161,14 @@ func (s *UserService) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	idInt, err := strconv.Atoi(id)
 
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	if err := s.userRepo.Delete(r.Context(), idInt); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("User deleted"))
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "User deleted")
 }

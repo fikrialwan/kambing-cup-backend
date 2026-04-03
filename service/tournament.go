@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"kambing-cup-backend/helper"
@@ -31,16 +30,11 @@ func (s *TournamentService) GetAll(w http.ResponseWriter, r *http.Request) {
 	tournaments, err := s.tournamentRepo.GetAll(r.Context())
 
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(tournaments); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, tournaments, "", "Tournaments retrieved")
 }
 
 func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
@@ -55,10 +49,10 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseMultipartForm(maxRequestSize); err != nil {
 		if strings.Contains(err.Error(), "request body too large") {
-			http.Error(w, "Request body too large (max 3MB)", http.StatusRequestEntityTooLarge)
+			helper.WriteResponse(w, http.StatusRequestEntityTooLarge, false, nil, helper.ErrEntityTooLarge, "Request body too large (max 3MB)")
 			return
 		}
-		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Error parsing form")
 		return
 	}
 	log.Printf("ParseMultipartForm took %v", time.Since(start))
@@ -72,20 +66,20 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		tournament.IsShow = false
 		tournament.IsActive = false
 	} else {
-		http.Error(w, "Name is required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentNameRequired, "Name is required")
 		return
 	}
 
 	var isDeleted bool
 	if existing, err := s.tournamentRepo.GetBySlugWithDeleted(r.Context(), tournament.Slug); err == nil {
 		if existing.DeletedAt == nil {
-			http.Error(w, "Slug is already taken", http.StatusBadRequest)
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentSlugTaken, "Slug is already taken")
 			return
 		}
 		isDeleted = true
 		tournament.ID = existing.ID
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 	log.Printf("GetBySlugWithDeleted took %v", time.Since(checkpoint))
@@ -102,29 +96,29 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("total_surah") != "" {
 		totalSurah, err := strconv.Atoi(r.FormValue("total_surah"))
 		if err != nil {
-			http.Error(w, "Total surah must be a number", http.StatusBadRequest)
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentTotalSurahInvalid, "Total surah must be a number")
 			return
 		}
 		tournament.TotalSurah = totalSurah
 	} else {
-		http.Error(w, "Total surah is required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentTotalSurahInvalid, "Total surah is required")
 		return
 	}
 
 	file, handler, err := r.FormFile("image")
 
 	if err != nil {
-		http.Error(w, "Image is required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentImageRequired, "Image is required")
 		return
 	}
 
 	if !helper.IsImage(handler) {
-		http.Error(w, "Invalid image format", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
 		return
 	}
 
 	if !helper.ValidateImageSize(handler, 2*1024*1024) {
-		http.Error(w, "Image size must be less than 2MB", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Image size must be less than 2MB")
 		return
 	}
 
@@ -134,7 +128,7 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 	helper.CheckDirectory(tournamentDir)
 
 	if err := helper.UploadFile(&file, tournamentDir, fileName); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 	log.Printf("UploadFile took %v", time.Since(checkpoint))
@@ -146,20 +140,18 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		if err := s.tournamentRepo.Restore(r.Context(), tournament); err != nil {
 			log.Print(err.Error())
 			helper.DeleteFile(filepath.Join(tournamentDir, fileName))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Tournament restored"))
+		helper.WriteResponse(w, http.StatusOK, true, nil, "", "Tournament restored")
 	} else {
 		if err := s.tournamentRepo.Create(r.Context(), tournament); err != nil {
 			log.Print(err.Error())
 			helper.DeleteFile(filepath.Join(tournamentDir, fileName))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("Tournament created"))
+		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Tournament created")
 	}
 	log.Printf("Repository operation took %v", time.Since(checkpoint))
 }
@@ -171,10 +163,10 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseMultipartForm(maxRequestSize); err != nil {
 		if strings.Contains(err.Error(), "request body too large") {
-			http.Error(w, "Request body too large (max 3MB)", http.StatusRequestEntityTooLarge)
+			helper.WriteResponse(w, http.StatusRequestEntityTooLarge, false, nil, helper.ErrEntityTooLarge, "Request body too large (max 3MB)")
 			return
 		}
-		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Error parsing form")
 		return
 	}
 
@@ -182,7 +174,7 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 	idInt, err := strconv.Atoi(id)
 
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
@@ -196,12 +188,12 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 		tournament.Name = r.FormValue("name")
 		tournament.Slug = helper.FormatSlug(tournament.Name)
 	} else {
-		http.Error(w, "Name is required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentNameRequired, "Name is required")
 		return
 	}
 
 	if tournamentTemp, err := s.tournamentRepo.GetBySlug(r.Context(), tournament.Slug); err == nil && tournamentTemp.ID != idInt {
-		http.Error(w, "Slug is already taken", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentSlugTaken, "Slug is already taken")
 		return
 	}
 
@@ -216,7 +208,7 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("total_surah") != "" {
 		totalSurah, err := strconv.Atoi(r.FormValue("total_surah"))
 		if err != nil {
-			http.Error(w, "Total surah must be a number", http.StatusBadRequest)
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentTotalSurahInvalid, "Total surah must be a number")
 			return
 		}
 		tournament.TotalSurah = totalSurah
@@ -226,12 +218,12 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 
 	if file != nil {
 		if !helper.IsImage(handler) {
-			http.Error(w, "Invalid image format", http.StatusBadRequest)
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
 			return
 		}
 
 		if !helper.ValidateImageSize(handler, 2*1024*1024) {
-			http.Error(w, "Image size must be less than 2MB", http.StatusBadRequest)
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Image size must be less than 2MB")
 			return
 		}
 
@@ -241,7 +233,7 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 		helper.CheckDirectory(tournamentDir)
 
 		if err := helper.UploadFile(&file, tournamentDir, fileName); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
 
@@ -253,12 +245,11 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 		if fileName != "" {
 			helper.DeleteFile(filepath.Join(s.storagePath, tournament.ImageUrl))
 		}
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Tournament updated"))
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Tournament updated")
 }
 
 func (s *TournamentService) Delete(w http.ResponseWriter, r *http.Request) {
@@ -266,17 +257,16 @@ func (s *TournamentService) Delete(w http.ResponseWriter, r *http.Request) {
 	idInt, err := strconv.Atoi(id)
 
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	if err := s.tournamentRepo.Delete(r.Context(), idInt); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Tournament deleted"))
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Tournament deleted")
 }
 
 func (s *TournamentService) Get(w http.ResponseWriter, r *http.Request) {
@@ -286,42 +276,33 @@ func (s *TournamentService) Get(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
 
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(tournament); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, tournament, "", "Tournament retrieved")
 }
 
 func (s *TournamentService) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	tournament, err := s.tournamentRepo.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(tournament); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, tournament, "", "Tournament retrieved")
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/repository"
 	"net/http"
@@ -23,118 +24,106 @@ func NewTeamService(teamRepo repository.TeamRepository) *TeamService {
 func (s *TeamService) GetAll(w http.ResponseWriter, r *http.Request) {
 	teams, err := s.teamRepo.GetAll(r.Context())
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(teams); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, teams, "", "Teams retrieved")
 }
 
 func (s *TeamService) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	team, err := s.teamRepo.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(team); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, team, "", "Team retrieved")
 }
 
 func (s *TeamService) Create(w http.ResponseWriter, r *http.Request) {
 	var team model.Team
 	if err := json.NewDecoder(r.Body).Decode(&team); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
 		return
 	}
 
 	if team.Name == "" || team.SportID == 0 {
-		http.Error(w, "Name and Sport ID are required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTeamRequiredFields, "Name and Sport ID are required")
 		return
 	}
 
 	var isDeleted bool
 	if existing, err := s.teamRepo.GetByNameAndSportWithDeleted(r.Context(), team.Name, team.SportID); err == nil {
 		if existing.DeletedAt == nil {
-			http.Error(w, "Team name is already taken in this sport", http.StatusBadRequest)
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTeamNameTaken, "Team name is already taken in this sport")
 			return
 		}
 		isDeleted = true
 		team.ID = existing.ID
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
 	if isDeleted {
 		if err := s.teamRepo.Restore(r.Context(), team); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Team restored"))
+		helper.WriteResponse(w, http.StatusOK, true, nil, "", "Team restored")
 	} else {
 		if err := s.teamRepo.Create(r.Context(), team); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("Team created"))
+		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Team created")
 	}
 }
 
 func (s *TeamService) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	var team model.Team
 	if err := json.NewDecoder(r.Body).Decode(&team); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
 		return
 	}
 	team.ID = id
 
 	if err := s.teamRepo.Update(r.Context(), team); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Team updated"))
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Team updated")
 }
 
 func (s *TeamService) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	if err := s.teamRepo.Delete(r.Context(), id); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Team deleted"))
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Team deleted")
 }
