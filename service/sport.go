@@ -130,7 +130,11 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 	var isDeleted bool
 	if existing, err := s.sportRepo.GetByNameAndTournamentWithDeleted(r.Context(), sport.Name, sport.TournamentID); err == nil {
 		if existing.DeletedAt == nil {
-			http.Error(w, "Sport name is already taken in this tournament", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(struct {
+				Message string `json:"message"`
+			}{"Sport name is already taken in this tournament"})
 			return
 		}
 		isDeleted = true
