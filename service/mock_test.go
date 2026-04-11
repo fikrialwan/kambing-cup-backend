@@ -213,6 +213,11 @@ func (m *MockMatchRepository) GetAll(ctx context.Context) ([]model.Match, error)
 	return args.Get(0).([]model.Match), args.Error(1)
 }
 
+func (m *MockMatchRepository) GetBySportID(ctx context.Context, sportID int) ([]model.Match, error) {
+	args := m.Called(ctx, sportID)
+	return args.Get(0).([]model.Match), args.Error(1)
+}
+
 func (m *MockMatchRepository) GetByID(ctx context.Context, id int) (model.Match, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(model.Match), args.Error(1)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/service"
 	"net/http"
@@ -35,7 +36,10 @@ func TestTeamService_Create(t *testing.T) {
 		svc.Create(w, req)
 
 		assert.Equal(t, http.StatusCreated, w.Code)
-		assert.Equal(t, "Team created", w.Body.String())
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "Team created", resp.Message)
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -57,6 +61,9 @@ func TestTeamService_GetByID(t *testing.T) {
 		svc.GetByID(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
 		mockRepo.AssertExpectations(t)
 	})
 }

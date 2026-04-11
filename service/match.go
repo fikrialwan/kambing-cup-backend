@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/repository"
 	"math"
@@ -60,96 +61,99 @@ func NewMatchService(matchRepo repository.MatchRepository, sportRepo repository.
 }
 
 func (s *MatchService) GetAll(w http.ResponseWriter, r *http.Request) {
-	matches, err := s.matchRepo.GetAll(r.Context())
+	var matches []model.Match
+	var err error
+
+	sportIDStr := r.URL.Query().Get("sportId")
+	if sportIDStr != "" {
+		sportID, errConv := strconv.Atoi(sportIDStr)
+		if errConv != nil {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid sportId")
+			return
+		}
+		matches, err = s.matchRepo.GetBySportID(r.Context(), sportID)
+	} else {
+		matches, err = s.matchRepo.GetAll(r.Context())
+	}
+
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(matches); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, matches, "", "Matches retrieved")
 }
 
 func (s *MatchService) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	match, err := s.matchRepo.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(match); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, match, "", "Match retrieved")
 }
 
 func (s *MatchService) Create(w http.ResponseWriter, r *http.Request) {
 	var match model.Match
 	if err := json.NewDecoder(r.Body).Decode(&match); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
 		return
 	}
 
 	if err := s.matchRepo.Create(r.Context(), match); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Match created"))
+	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Match created")
 }
 
 func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	var match model.Match
 	if err := json.NewDecoder(r.Body).Decode(&match); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
 		return
 	}
 	match.ID = id
 
 	if err := s.matchRepo.Update(r.Context(), match); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Match updated"))
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Match updated")
 }
 
 func (s *MatchService) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
 	if err := s.matchRepo.Delete(r.Context(), id); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Match deleted"))
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Match deleted")
 }
 
 type GenerateMatchesRequest struct {
@@ -177,19 +181,27 @@ type FirebaseMatch struct {
 func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 	var req GenerateMatchesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
 		return
 	}
 
 	sport, err := s.sportRepo.GetByID(r.Context(), req.SportID)
 	if err != nil {
-		http.Error(w, "Sport not found", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrMatchSportNotFound, "Sport not found")
+			return
+		}
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
 	tournament, err := s.tournamentRepo.GetByID(r.Context(), sport.TournamentID)
 	if err != nil {
-		http.Error(w, "Tournament not found", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrMatchTournamentNotFound, "Tournament not found")
+			return
+		}
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
@@ -365,10 +377,9 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 	path := fmt.Sprintf("%s/sports/%s/matches", tournament.Slug, sport.Slug)
 	ref := s.firebaseDb.NewRef(path)
 	if err := ref.Set(r.Context(), firebaseMatches); err != nil {
-		http.Error(w, "Error saving to Firebase: "+err.Error(), http.StatusInternalServerError)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrMatchFirebaseError, "Error saving to Firebase: "+err.Error())
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Matches generated successfully"))
+	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Matches generated successfully")
 }

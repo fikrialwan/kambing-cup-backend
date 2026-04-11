@@ -3,7 +3,8 @@ package service_test
 import (
 	"bytes"
 	"context"
-	"errors"
+	"encoding/json"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/service"
 	"mime/multipart"
@@ -50,7 +51,10 @@ func TestSportService_Create(t *testing.T) {
 		svc.Create(w, req)
 
 		assert.Equal(t, http.StatusCreated, w.Code)
-		assert.Equal(t, "Sport created", w.Body.String())
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "Sport created", resp.Message)
 
 		mockTournamentRepo.AssertExpectations(t)
 		mockSportRepo.AssertExpectations(t)
@@ -62,7 +66,7 @@ func TestSportService_Create(t *testing.T) {
 		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
 
 		// Mock Tournament GetByID to fail
-		mockTournamentRepo.On("GetByID", mock.Anything, 999).Return(model.Tournament{}, errors.New("not found"))
+		mockTournamentRepo.On("GetByID", mock.Anything, 999).Return(model.Tournament{}, pgx.ErrNoRows)
 
 		// Create Request
 		body := new(bytes.Buffer)
@@ -77,7 +81,11 @@ func TestSportService_Create(t *testing.T) {
 
 		svc.Create(w, req)
 
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.False(t, resp.Success)
+		assert.Equal(t, helper.ErrSportTournamentNotFound, resp.ErrorCode)
 
 		mockTournamentRepo.AssertExpectations(t)
 		mockSportRepo.AssertNotCalled(t, "Create")
@@ -119,7 +127,10 @@ func TestSportService_Create(t *testing.T) {
 		svc.Create(w, req)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Contains(t, w.Body.String(), "Image size must be less than 2MB")
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.False(t, resp.Success)
+		assert.Contains(t, resp.Message, "Image size must be less than 2MB")
 
 		mockTournamentRepo.AssertExpectations(t)
 		mockSportRepo.AssertNotCalled(t, "Create")
@@ -144,6 +155,9 @@ func TestSportService_Create(t *testing.T) {
 		svc.GetByID(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
 	})
 }
 
@@ -162,6 +176,9 @@ func TestSportService_GetAll(t *testing.T) {
 		svc.GetAll(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
 		mockSportRepo.AssertExpectations(t)
 	})
 
@@ -179,6 +196,9 @@ func TestSportService_GetAll(t *testing.T) {
 		svc.GetAll(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
 		mockSportRepo.AssertExpectations(t)
 	})
 
@@ -193,6 +213,10 @@ func TestSportService_GetAll(t *testing.T) {
 		svc.GetAll(w, req)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Contains(t, w.Body.String(), "Invalid Tournament ID")
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.False(t, resp.Success)
+		assert.Equal(t, helper.ErrBadRequest, resp.ErrorCode)
+		assert.Contains(t, resp.Message, "Invalid Tournament ID")
 	})
 }

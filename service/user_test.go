@@ -3,6 +3,7 @@ package service_test
 import (
 	"bytes"
 	"encoding/json"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/service"
 	"net/http"
@@ -35,7 +36,10 @@ func TestUserService_CreateUser(t *testing.T) {
 		svc.CreateUser(w, req)
 
 		assert.Equal(t, http.StatusCreated, w.Code)
-		assert.Equal(t, "User created", w.Body.String())
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "User created", resp.Message)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -56,6 +60,10 @@ func TestUserService_CreateUser(t *testing.T) {
 		svc.CreateUser(w, req)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.False(t, resp.Success)
+		assert.Equal(t, "503", resp.ErrorCode)
 		mockRepo.AssertNotCalled(t, "Create")
 	})
 }
@@ -75,6 +83,9 @@ func TestUserService_GetUser(t *testing.T) {
 		svc.GetUser(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
 		mockRepo.AssertExpectations(t)
 	})
 }

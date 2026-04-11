@@ -3,6 +3,8 @@ package service_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/service"
 	"mime/multipart"
@@ -36,6 +38,9 @@ func TestTournamentService_Get(t *testing.T) {
 		svc.Get(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -68,7 +73,10 @@ func TestTournamentService_Create(t *testing.T) {
 		svc.Create(w, req)
 
 		assert.Equal(t, http.StatusCreated, w.Code)
-		assert.Equal(t, "Tournament created", w.Body.String())
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "Tournament created", resp.Message)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -101,7 +109,10 @@ func TestTournamentService_Create(t *testing.T) {
 		svc.Create(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "Tournament restored", w.Body.String())
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "Tournament restored", resp.Message)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -130,7 +141,11 @@ func TestTournamentService_Create(t *testing.T) {
 		svc.Create(w, req)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Equal(t, "Slug is already taken\n", w.Body.String())
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.False(t, resp.Success)
+		assert.Equal(t, "101", resp.ErrorCode)
+		assert.Equal(t, "Slug is already taken", resp.Message)
 		mockRepo.AssertExpectations(t)
 	})
 }

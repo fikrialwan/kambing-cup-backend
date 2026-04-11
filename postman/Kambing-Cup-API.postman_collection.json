@@ -171,7 +171,7 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    const jsonResponse = pm.response.json();",
-									"    pm.collectionVariables.set(\"token\", \"Bearer \" + jsonResponse.token);",
+									"    pm.collectionVariables.set(\"token\", \"Bearer \" + jsonResponse.data.token);",
 									"}"
 								],
 								"type": "text/javascript",
@@ -421,6 +421,35 @@
 					"response": []
 				},
 				{
+					"name": "getAllBySportId",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/match?sportId=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"match"
+							],
+							"query": [
+								{
+									"key": "sportId",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "getById",
 					"request": {
 						"method": "GET",
@@ -556,6 +585,35 @@
 							],
 							"path": [
 								"sport"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "getAllByTournamentId",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/sport?tournamentId=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"sport"
+							],
+							"query": [
+								{
+									"key": "tournamentId",
+									"value": "1"
+								}
 							]
 						}
 					},

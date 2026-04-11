@@ -12,6 +12,7 @@ import (
 type MatchRepository interface {
 	Create(ctx context.Context, match model.Match) error
 	GetAll(ctx context.Context) ([]model.Match, error)
+	GetBySportID(ctx context.Context, sportID int) ([]model.Match, error)
 	GetByID(ctx context.Context, id int) (model.Match, error)
 	Update(ctx context.Context, match model.Match) error
 	Delete(ctx context.Context, id int) error
@@ -33,6 +34,27 @@ func (r *matchRepository) Create(ctx context.Context, match model.Match) error {
 func (r *matchRepository) GetAll(ctx context.Context) ([]model.Match, error) {
 	var matches []model.Match
 	rows, err := r.pool.Query(ctx, "SELECT id, sport_id, home_id, away_id, home_score, away_score, round_id, next_round_id, round, state, start_date, winner, created_at, updated_at, deleted_at FROM matches WHERE deleted_at IS NULL")
+	if err != nil {
+		log.Print(err.Error())
+		return matches, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var match model.Match
+		if err := rows.Scan(&match.ID, &match.SportID, &match.HomeID, &match.AwayID, &match.HomeScore, &match.AwayScore, &match.RoundID, &match.NextRoundID, &match.Round, &match.State, &match.StartDate, &match.Winner, &match.CreatedAt, &match.UpdatedAt, &match.DeletedAt); err != nil {
+			log.Print(err.Error())
+			return nil, err
+		}
+		matches = append(matches, match)
+	}
+
+	return matches, nil
+}
+
+func (r *matchRepository) GetBySportID(ctx context.Context, sportID int) ([]model.Match, error) {
+	var matches []model.Match
+	rows, err := r.pool.Query(ctx, "SELECT id, sport_id, home_id, away_id, home_score, away_score, round_id, next_round_id, round, state, start_date, winner, created_at, updated_at, deleted_at FROM matches WHERE sport_id = $1 AND deleted_at IS NULL ORDER BY round_id DESC", sportID)
 	if err != nil {
 		log.Print(err.Error())
 		return matches, err

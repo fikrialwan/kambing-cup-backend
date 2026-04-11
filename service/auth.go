@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/repository"
 	"log"
@@ -33,38 +34,32 @@ func NewAuthService(userRepo repository.UserRepository) *AuthService {
 func (s *AuthService) Login(w http.ResponseWriter, r *http.Request) {
 	var loginRequest LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
-		http.Error(w, "Email and password are required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid request body")
 		return
 	}
 
 	if loginRequest.Email == "" || loginRequest.Password == "" {
-		http.Error(w, "Email and password are required", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrAuthRequiredFields, "Email and password are required")
 		return
 	}
 
-	users, err := s.userRepo.GetByEmailPassword(r.Context(), loginRequest.Email, loginRequest.Password)
+	user, err := s.userRepo.GetByEmailPassword(r.Context(), loginRequest.Email, loginRequest.Password)
 
 	if err != nil {
 		log.Default().Println(err.Error())
-		http.Error(w, "Email or password is incorrect", http.StatusBadRequest)
+		helper.WriteResponse(w, http.StatusUnauthorized, false, nil, helper.ErrAuthInvalidCredentials, "Email or password is incorrect")
 		return
 	}
 
-	token, expIn, err := generateToken(users)
+	token, expIn, err := generateToken(user)
 
 	if err != nil {
-		log.Panic(err.Error())
-		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
+		log.Printf("Token generation error: %v", err)
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(LoginResponse{Token: token, ExpIn: expIn}); err != nil {
-		log.Panic(err.Error())
-		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
-		return
-	}
+	helper.WriteResponse(w, http.StatusOK, true, LoginResponse{Token: token, ExpIn: expIn}, "", "Login successful")
 }
 
 func generateToken(user model.User) (s string, expIn int64, err error) {
