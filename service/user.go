@@ -77,36 +77,19 @@ func (s *UserService) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var isDeleted bool
-	var existingUser model.User
-	if existing, err := s.userRepo.GetByUsernameOrEmailWithDeleted(r.Context(), userReq.Username, userReq.Email); err == nil {
-		if existing.DeletedAt == nil {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrUserAlreadyExists, "Username or email is already taken")
-			return
-		}
-		isDeleted = true
-		existingUser = existing
+	if _, err := s.userRepo.GetByUsernameOrEmail(r.Context(), userReq.Username, userReq.Email); err == nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrUserAlreadyExists, "Username or email is already taken")
+		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	if isDeleted {
-		// Prepare restored user data
-		existingUser.Password = userReq.Password
-		existingUser.Role = userReq.Role
-		if err := s.userRepo.Restore(r.Context(), existingUser); err != nil {
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-		helper.WriteResponse(w, http.StatusOK, true, nil, "", "User restored")
-	} else {
-		if err := s.userRepo.Create(r.Context(), userReq); err != nil {
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "User created")
+	if err := s.userRepo.Create(r.Context(), userReq); err != nil {
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
 	}
+	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "User created")
 }
 
 func (s *UserService) UpdateUser(w http.ResponseWriter, r *http.Request) {

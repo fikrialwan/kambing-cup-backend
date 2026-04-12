@@ -18,8 +18,6 @@ type TournamentRepository interface {
 	Delete(ctx context.Context, id int) error
 	GetBySlug(ctx context.Context, slug string) (model.Tournament, error)
 	GetByID(ctx context.Context, id int) (model.Tournament, error)
-	GetBySlugWithDeleted(ctx context.Context, slug string) (model.Tournament, error)
-	Restore(ctx context.Context, tournament model.Tournament) error
 }
 
 type tournamentRepository struct {
@@ -32,7 +30,7 @@ func NewTournamentRepository(pool *pgxpool.Pool) TournamentRepository {
 
 func (T *tournamentRepository) GetAll(ctx context.Context) ([]model.Tournament, error) {
 	var tournaments []model.Tournament
-	rows, err := T.pool.Query(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE deleted_at IS NULL")
+	rows, err := T.pool.Query(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at FROM tournaments")
 	if err != nil {
 		log.Print(err.Error())
 		return tournaments, err
@@ -40,7 +38,7 @@ func (T *tournamentRepository) GetAll(ctx context.Context) ([]model.Tournament, 
 
 	for rows.Next() {
 		var tournament model.Tournament
-		if err := rows.Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt); err != nil {
+		if err := rows.Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt); err != nil {
 			log.Print(err.Error())
 			return tournaments, err
 		}
@@ -52,7 +50,7 @@ func (T *tournamentRepository) GetAll(ctx context.Context) ([]model.Tournament, 
 
 func (T *tournamentRepository) GetActive(ctx context.Context) (model.Tournament, error) {
 	var tournament model.Tournament
-	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE is_active = true AND deleted_at IS NULL LIMIT 1").Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
+	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at FROM tournaments WHERE is_active = true LIMIT 1").Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt)
 	return tournament, err
 }
 
@@ -74,35 +72,24 @@ func (T *tournamentRepository) Update(ctx context.Context, tournament model.Tour
 }
 
 func (T *tournamentRepository) DeactivateAllExcept(ctx context.Context, id int) error {
-	_, err := T.pool.Exec(ctx, "UPDATE tournaments SET is_active = false, updated_at = $1 WHERE id != $2 AND deleted_at IS NULL", time.Now(), id)
+	_, err := T.pool.Exec(ctx, "UPDATE tournaments SET is_active = false, updated_at = $1 WHERE id != $2", time.Now(), id)
 	return err
 }
 
 func (T *tournamentRepository) Delete(ctx context.Context, id int) error {
-	_, err := T.pool.Exec(ctx, "UPDATE tournaments SET deleted_at = $1 WHERE id = $2", time.Now(), id)
+	_, err := T.pool.Exec(ctx, "DELETE FROM tournaments WHERE id = $1", id)
 
 	return err
 }
 
 func (T *tournamentRepository) GetBySlug(ctx context.Context, slug string) (model.Tournament, error) {
 	var tournament model.Tournament
-	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE slug = $1 AND deleted_at IS NULL", slug).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
+	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at FROM tournaments WHERE slug = $1", slug).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt)
 	return tournament, err
 }
 
 func (T *tournamentRepository) GetByID(ctx context.Context, id int) (model.Tournament, error) {
 	var tournament model.Tournament
-	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE id = $1 AND deleted_at IS NULL", id).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
+	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at FROM tournaments WHERE id = $1", id).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt)
 	return tournament, err
-}
-
-func (T *tournamentRepository) GetBySlugWithDeleted(ctx context.Context, slug string) (model.Tournament, error) {
-	var tournament model.Tournament
-	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE slug = $1", slug).Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
-	return tournament, err
-}
-
-func (T *tournamentRepository) Restore(ctx context.Context, tournament model.Tournament) error {
-	_, err := T.pool.Exec(ctx, "UPDATE tournaments SET name = $1, is_show = $2, is_active = $3, image_url = $4, total_surah = $5, updated_at = $6, deleted_at = NULL WHERE id = $7", tournament.Name, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, tournament.TotalSurah, time.Now(), tournament.ID)
-	return err
 }

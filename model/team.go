@@ -11,5 +11,4 @@ type Team struct {
 	CompanyName string     `json:"company_name"`
 	CreatedAt   time.Time  `json:"-"`
 	UpdatedAt   time.Time  `json:"-"`
-	DeletedAt   *time.Time `json:"-"`
 }

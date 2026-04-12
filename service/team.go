@@ -81,7 +81,7 @@ func (s *TeamService) SyncToFirebase(ctx context.Context, sportID int) error {
 		canEdit := curr.HomeID == nil || curr.AwayID == nil
 		fbMatch := map[string]interface{}{
 			"name":                curr.Round + " - Match ",
-			"nextMatchId":         "", // This might need more logic if we want to support full bracket
+			"nextMatchId":         "",
 			"startTime":           curr.StartDate.Format("15:04"),
 			"state":               string(curr.State),
 			"tournamentRoundText": curr.Round,
@@ -89,19 +89,22 @@ func (s *TeamService) SyncToFirebase(ctx context.Context, sportID int) error {
 				nil,
 				map[string]interface{}{
 					"name":         homeName,
-					"resultText":   curr.HomeScore,
-					"isWinner":     curr.Winner != nil && homeName != "" && *curr.Winner == homeName,
+					"resultText":   helper.StringValue(curr.HomeScore),
+					"isWinner":     curr.WinnerID != nil && curr.HomeID != nil && *curr.WinnerID == *curr.HomeID,
 					"canEditTeams": canEdit,
 				},
 				map[string]interface{}{
 					"name":         awayName,
-					"resultText":   curr.AwayScore,
-					"isWinner":     curr.Winner != nil && awayName != "" && *curr.Winner == awayName,
+					"resultText":   helper.StringValue(curr.AwayScore),
+					"isWinner":     curr.WinnerID != nil && curr.AwayID != nil && *curr.WinnerID == *curr.AwayID,
 					"canEditTeams": canEdit,
 				},
 			},
 		}
-		firebaseMatches[strconv.Itoa(curr.ID)] = fbMatch
+		if curr.ImageUrl != nil {
+			fbMatch["imageUrl"] = *curr.ImageUrl
+		}
+		firebaseMatches[strconv.Itoa(curr.RoundID)] = fbMatch
 	}
 
 	path := fmt.Sprintf("%s/sports/%s/matches", tournament.Slug, sport.Slug)
@@ -152,42 +155,24 @@ func (s *TeamService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var isDeleted bool
-	if existing, err := s.teamRepo.GetByNameAndSportWithDeleted(r.Context(), team.Name, team.SportID); err == nil {
-		if existing.DeletedAt == nil {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTeamNameTaken, "Team name is already taken in this sport")
-			return
-		}
-		isDeleted = true
-		team.ID = existing.ID
+	if _, err := s.teamRepo.GetByNameAndSport(r.Context(), team.Name, team.SportID); err == nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTeamNameTaken, "Team name is already taken in this sport")
+		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
-	if isDeleted {
-		if err := s.teamRepo.Restore(r.Context(), team); err != nil {
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-		go func() {
-			if err := s.SyncToFirebase(context.Background(), team.SportID); err != nil {
-				fmt.Printf("Error syncing to Firebase: %v\n", err)
-			}
-		}()
-		helper.WriteResponse(w, http.StatusOK, true, nil, "", "Team restored")
-	} else {
-		if err := s.teamRepo.Create(r.Context(), team); err != nil {
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-		go func() {
-			if err := s.SyncToFirebase(context.Background(), team.SportID); err != nil {
-				fmt.Printf("Error syncing to Firebase: %v\n", err)
-			}
-		}()
-		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Team created")
+	if err := s.teamRepo.Create(r.Context(), team); err != nil {
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
 	}
+	go func() {
+		if err := s.SyncToFirebase(context.Background(), team.SportID); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
+	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Team created")
 }
 
 func (s *TeamService) CreateBulk(w http.ResponseWriter, r *http.Request) {

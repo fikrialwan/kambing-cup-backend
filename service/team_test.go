@@ -25,7 +25,7 @@ func TestTeamService_Create(t *testing.T) {
 		mockTournamentRepo := new(MockTournamentRepository)
 		svc := service.NewTeamService(mockRepo, mockSportRepo, mockMatchRepo, mockTournamentRepo, nil)
 
-		mockRepo.On("GetByNameAndSportWithDeleted", mock.Anything, "Team A", 1).Return(model.Team{}, pgx.ErrNoRows)
+		mockRepo.On("GetByNameAndSport", mock.Anything, "Team A", 1).Return(model.Team{}, pgx.ErrNoRows)
 		mockRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Team")).Return(nil)
 
 		reqBody := model.Team{

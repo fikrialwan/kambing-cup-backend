@@ -34,7 +34,18 @@ func (r *matchRepository) Create(ctx context.Context, match model.Match) error {
 
 func (r *matchRepository) GetAll(ctx context.Context) ([]model.Match, error) {
 	var matches []model.Match
-	rows, err := r.pool.Query(ctx, "SELECT id, sport_id, home_id, away_id, home_score, away_score, round_id, next_round_id, round, state, start_date, winner_id, image_url, created_at, updated_at, deleted_at FROM matches WHERE deleted_at IS NULL")
+	query := `
+		SELECT 
+			m.id, m.sport_id, m.home_id, m.away_id, m.home_score, m.away_score, 
+			m.round_id, m.next_round_id, m.round, m.state, m.start_date, m.winner_id, m.image_url, 
+			m.created_at, m.updated_at,
+			t1.name as home_name, t1.company_name as home_company,
+			t2.name as away_name, t2.company_name as away_company
+		FROM matches m
+		LEFT JOIN teams t1 ON m.home_id = t1.id
+		LEFT JOIN teams t2 ON m.away_id = t2.id`
+	
+	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
 		log.Print(err.Error())
 		return matches, err
@@ -43,7 +54,12 @@ func (r *matchRepository) GetAll(ctx context.Context) ([]model.Match, error) {
 
 	for rows.Next() {
 		var match model.Match
-		if err := rows.Scan(&match.ID, &match.SportID, &match.HomeID, &match.AwayID, &match.HomeScore, &match.AwayScore, &match.RoundID, &match.NextRoundID, &match.Round, &match.State, &match.StartDate, &match.WinnerID, &match.ImageUrl, &match.CreatedAt, &match.UpdatedAt, &match.DeletedAt); err != nil {
+		if err := rows.Scan(
+			&match.ID, &match.SportID, &match.HomeID, &match.AwayID, &match.HomeScore, &match.AwayScore, 
+			&match.RoundID, &match.NextRoundID, &match.Round, &match.State, &match.StartDate, &match.WinnerID, &match.ImageUrl, 
+			&match.CreatedAt, &match.UpdatedAt,
+			&match.HomeName, &match.HomeCompany, &match.AwayName, &match.AwayCompany,
+		); err != nil {
 			log.Print(err.Error())
 			return nil, err
 		}
@@ -55,7 +71,20 @@ func (r *matchRepository) GetAll(ctx context.Context) ([]model.Match, error) {
 
 func (r *matchRepository) GetBySportID(ctx context.Context, sportID int) ([]model.Match, error) {
 	var matches []model.Match
-	rows, err := r.pool.Query(ctx, "SELECT id, sport_id, home_id, away_id, home_score, away_score, round_id, next_round_id, round, state, start_date, winner_id, image_url, created_at, updated_at, deleted_at FROM matches WHERE sport_id = $1 AND deleted_at IS NULL ORDER BY round_id DESC", sportID)
+	query := `
+		SELECT 
+			m.id, m.sport_id, m.home_id, m.away_id, m.home_score, m.away_score, 
+			m.round_id, m.next_round_id, m.round, m.state, m.start_date, m.winner_id, m.image_url, 
+			m.created_at, m.updated_at,
+			t1.name as home_name, t1.company_name as home_company,
+			t2.name as away_name, t2.company_name as away_company
+		FROM matches m
+		LEFT JOIN teams t1 ON m.home_id = t1.id
+		LEFT JOIN teams t2 ON m.away_id = t2.id
+		WHERE m.sport_id = $1 
+		ORDER BY m.round_id DESC`
+
+	rows, err := r.pool.Query(ctx, query, sportID)
 	if err != nil {
 		log.Print(err.Error())
 		return matches, err
@@ -64,7 +93,12 @@ func (r *matchRepository) GetBySportID(ctx context.Context, sportID int) ([]mode
 
 	for rows.Next() {
 		var match model.Match
-		if err := rows.Scan(&match.ID, &match.SportID, &match.HomeID, &match.AwayID, &match.HomeScore, &match.AwayScore, &match.RoundID, &match.NextRoundID, &match.Round, &match.State, &match.StartDate, &match.WinnerID, &match.ImageUrl, &match.CreatedAt, &match.UpdatedAt, &match.DeletedAt); err != nil {
+		if err := rows.Scan(
+			&match.ID, &match.SportID, &match.HomeID, &match.AwayID, &match.HomeScore, &match.AwayScore, 
+			&match.RoundID, &match.NextRoundID, &match.Round, &match.State, &match.StartDate, &match.WinnerID, &match.ImageUrl, 
+			&match.CreatedAt, &match.UpdatedAt,
+			&match.HomeName, &match.HomeCompany, &match.AwayName, &match.AwayCompany,
+		); err != nil {
 			log.Print(err.Error())
 			return nil, err
 		}
@@ -76,7 +110,24 @@ func (r *matchRepository) GetBySportID(ctx context.Context, sportID int) ([]mode
 
 func (r *matchRepository) GetByID(ctx context.Context, id int) (model.Match, error) {
 	var match model.Match
-	err := r.pool.QueryRow(ctx, "SELECT id, sport_id, home_id, away_id, home_score, away_score, round_id, next_round_id, round, state, start_date, winner_id, image_url, created_at, updated_at, deleted_at FROM matches WHERE id = $1 AND deleted_at IS NULL", id).Scan(&match.ID, &match.SportID, &match.HomeID, &match.AwayID, &match.HomeScore, &match.AwayScore, &match.RoundID, &match.NextRoundID, &match.Round, &match.State, &match.StartDate, &match.WinnerID, &match.ImageUrl, &match.CreatedAt, &match.UpdatedAt, &match.DeletedAt)
+	query := `
+		SELECT 
+			m.id, m.sport_id, m.home_id, m.away_id, m.home_score, m.away_score, 
+			m.round_id, m.next_round_id, m.round, m.state, m.start_date, m.winner_id, m.image_url, 
+			m.created_at, m.updated_at,
+			t1.name as home_name, t1.company_name as home_company,
+			t2.name as away_name, t2.company_name as away_company
+		FROM matches m
+		LEFT JOIN teams t1 ON m.home_id = t1.id
+		LEFT JOIN teams t2 ON m.away_id = t2.id
+		WHERE m.id = $1`
+
+	err := r.pool.QueryRow(ctx, query, id).Scan(
+		&match.ID, &match.SportID, &match.HomeID, &match.AwayID, &match.HomeScore, &match.AwayScore, 
+		&match.RoundID, &match.NextRoundID, &match.Round, &match.State, &match.StartDate, &match.WinnerID, &match.ImageUrl, 
+		&match.CreatedAt, &match.UpdatedAt,
+		&match.HomeName, &match.HomeCompany, &match.AwayName, &match.AwayCompany,
+	)
 	return match, err
 }
 
@@ -86,11 +137,11 @@ func (r *matchRepository) Update(ctx context.Context, match model.Match) error {
 }
 
 func (r *matchRepository) Delete(ctx context.Context, id int) error {
-	_, err := r.pool.Exec(ctx, "UPDATE matches SET deleted_at = $1 WHERE id = $2", time.Now(), id)
+	_, err := r.pool.Exec(ctx, "DELETE FROM matches WHERE id = $1", id)
 	return err
 }
 
 func (r *matchRepository) DeleteBySportID(ctx context.Context, sportID int) error {
-	_, err := r.pool.Exec(ctx, "UPDATE matches SET deleted_at = $1 WHERE sport_id = $2 AND deleted_at IS NULL", time.Now(), sportID)
+	_, err := r.pool.Exec(ctx, "DELETE FROM matches WHERE sport_id = $1", sportID)
 	return err
 }

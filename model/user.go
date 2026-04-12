@@ -10,7 +10,6 @@ type User struct {
 	Role      string     `json:"role"`
 	CreatedAt time.Time  `json:"-"`
 	UpdatedAt time.Time  `json:"-"`
-	DeletedAt *time.Time `json:"-"`
 }
 
 type CreateUserRequest struct {

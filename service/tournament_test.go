@@ -13,7 +13,6 @@ import (
 	"net/textproto"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -52,7 +51,7 @@ func TestTournamentService_Create(t *testing.T) {
 
 		defer os.RemoveAll("./storage")
 
-		mockRepo.On("GetBySlugWithDeleted", mock.Anything, "agi-15").Return(model.Tournament{}, pgx.ErrNoRows)
+		mockRepo.On("GetBySlug", mock.Anything, "agi-15").Return(model.Tournament{}, pgx.ErrNoRows)
 		mockRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Tournament")).Return(nil)
 
 		body := new(bytes.Buffer)
@@ -80,48 +79,12 @@ func TestTournamentService_Create(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("SuccessRestore", func(t *testing.T) {
-		mockRepo := new(MockTournamentRepository)
-		svc := service.NewTournamentService(mockRepo, ".", nil)
-
-		defer os.RemoveAll("./storage")
-
-		deletedAt := time.Now()
-		existing := model.Tournament{ID: 1, Name: "AGI 15", Slug: "agi-15", DeletedAt: &deletedAt}
-		mockRepo.On("GetBySlugWithDeleted", mock.Anything, "agi-15").Return(existing, nil)
-		mockRepo.On("Restore", mock.Anything, mock.AnythingOfType("model.Tournament")).Return(nil)
-
-		body := new(bytes.Buffer)
-		writer := multipart.NewWriter(body)
-		writer.WriteField("name", "AGI 15")
-		writer.WriteField("total_surah", "114")
-		header := make(textproto.MIMEHeader)
-		header.Set("Content-Disposition", `form-data; name="image"; filename="test.png"`)
-		header.Set("Content-Type", "image/png")
-		part, _ := writer.CreatePart(header)
-		part.Write([]byte("fake-image-data"))
-		writer.Close()
-
-		req := httptest.NewRequest("POST", "/tournament", body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-		w := httptest.NewRecorder()
-
-		svc.Create(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-		var resp helper.Response
-		json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.True(t, resp.Success)
-		assert.Equal(t, "Tournament restored", resp.Message)
-		mockRepo.AssertExpectations(t)
-	})
-
 	t.Run("SlugTaken", func(t *testing.T) {
 		mockRepo := new(MockTournamentRepository)
 		svc := service.NewTournamentService(mockRepo, ".", nil)
 
-		existing := model.Tournament{ID: 1, Name: "AGI 15", Slug: "agi-15", DeletedAt: nil}
-		mockRepo.On("GetBySlugWithDeleted", mock.Anything, "agi-15").Return(existing, nil)
+		existing := model.Tournament{ID: 1, Name: "AGI 15", Slug: "agi-15"}
+		mockRepo.On("GetBySlug", mock.Anything, "agi-15").Return(existing, nil)
 
 		body := new(bytes.Buffer)
 		writer := multipart.NewWriter(body)

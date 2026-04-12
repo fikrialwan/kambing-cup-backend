@@ -231,39 +231,50 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 	newState := model.MatchState(r.FormValue("state"))
 
 	if existingMatch.State == model.SOON {
-		if newState != model.LIVE {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchInvalidStateTransition, "Can only update status from SOON to LIVE")
-			return
+		// Update home/away ID if provided
+		if r.FormValue("home_id") != "" {
+			homeID, err := strconv.Atoi(r.FormValue("home_id"))
+			if err == nil {
+				existingMatch.HomeID = &homeID
+			}
+		}
+		if r.FormValue("away_id") != "" {
+			awayID, err := strconv.Atoi(r.FormValue("away_id"))
+			if err == nil {
+				existingMatch.AwayID = &awayID
+			}
 		}
 
-		file, handler, err := r.FormFile("image")
-		if err != nil {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchImageRequired, "Image is required when starting match")
-			return
+		if newState == model.LIVE {
+			file, handler, err := r.FormFile("image")
+			if err != nil {
+				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchImageRequired, "Image is required when starting match")
+				return
+			}
+
+			if !helper.IsImage(handler) {
+				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
+				return
+			}
+
+			if !helper.ValidateImageSize(handler, 2*1024*1024) {
+				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Image size must be less than 2MB")
+				return
+			}
+
+			fileName := fmt.Sprintf("match-%d-%d%s", existingMatch.ID, time.Now().UnixNano(), filepath.Ext(handler.Filename))
+			matchDir := filepath.Join(".", "storage", "match")
+			helper.CheckDirectory(matchDir)
+
+			if err := helper.UploadFile(&file, matchDir, fileName); err != nil {
+				helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+				return
+			}
+
+			imageUrl := fmt.Sprintf("/storage/match/%s", fileName)
+			existingMatch.ImageUrl = &imageUrl
+			existingMatch.State = model.LIVE
 		}
-
-		if !helper.IsImage(handler) {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
-			return
-		}
-
-		if !helper.ValidateImageSize(handler, 2*1024*1024) {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Image size must be less than 2MB")
-			return
-		}
-
-		fileName := fmt.Sprintf("match-%d-%d%s", existingMatch.ID, time.Now().UnixNano(), filepath.Ext(handler.Filename))
-		matchDir := filepath.Join(".", "storage", "match")
-		helper.CheckDirectory(matchDir)
-
-		if err := helper.UploadFile(&file, matchDir, fileName); err != nil {
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-
-		imageUrl := fmt.Sprintf("/storage/match/%s", fileName)
-		existingMatch.ImageUrl = &imageUrl
-		existingMatch.State = model.LIVE
 	} else if existingMatch.State == model.LIVE {
 		if newState != "" && newState != model.LIVE && newState != model.DONE {
 			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchInvalidStateTransition, "Can only update status from LIVE to DONE or update scores")

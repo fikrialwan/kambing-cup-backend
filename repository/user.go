@@ -20,8 +20,7 @@ type UserRepository interface {
 	CreateSuperadmin(ctx context.Context, username, email, password string) error
 	GetSuperadminByUsername(ctx context.Context, username string) (model.User, error)
 	UpdateSuperadminEmail(ctx context.Context, id int, email string) error
-	GetByUsernameOrEmailWithDeleted(ctx context.Context, username, email string) (model.User, error)
-	Restore(ctx context.Context, user model.User) error
+	GetByUsernameOrEmail(ctx context.Context, username, email string) (model.User, error)
 }
 
 type userRepository struct {
@@ -34,7 +33,7 @@ func NewUserRepository(pool *pgxpool.Pool) UserRepository {
 
 func (u *userRepository) GetAll(ctx context.Context) ([]model.User, error) {
 	var users []model.User
-	rows, err := u.pool.Query(ctx, "SELECT id, username, email, password, role, created_at, updated_at, deleted_at FROM users WHERE deleted_at IS NULL")
+	rows, err := u.pool.Query(ctx, "SELECT id, username, email, password, role, created_at, updated_at FROM users")
 	if err != nil {
 		log.Print(err.Error())
 		return users, err
@@ -42,7 +41,7 @@ func (u *userRepository) GetAll(ctx context.Context) ([]model.User, error) {
 
 	for rows.Next() {
 		var user model.User
-		if err := rows.Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt); err != nil {
+		if err := rows.Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt); err != nil {
 			log.Print(err.Error())
 			return users, err
 		}
@@ -54,13 +53,13 @@ func (u *userRepository) GetAll(ctx context.Context) ([]model.User, error) {
 
 func (u *userRepository) GetByEmailPassword(ctx context.Context, email string, password string) (model.User, error) {
 	var user model.User
-	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at, deleted_at FROM users WHERE email = $1 AND password = $2 AND deleted_at IS NULL", email, password).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at FROM users WHERE email = $1 AND password = $2", email, password).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	return user, err
 }
 
 func (u *userRepository) GetById(ctx context.Context, id int) (model.User, error) {
 	var user model.User
-	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND deleted_at IS NULL", id).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at FROM users WHERE id = $1", id).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	return user, err
 }
 
@@ -77,14 +76,14 @@ func (u *userRepository) Update(ctx context.Context, user model.UpdateUserReques
 }
 
 func (u *userRepository) Delete(ctx context.Context, id int) error {
-	_, err := u.pool.Exec(ctx, "UPDATE users SET deleted_at = $1 WHERE id = $2", time.Now(), id)
+	_, err := u.pool.Exec(ctx, "DELETE FROM users WHERE id = $1", id)
 
 	return err
 }
 
 func (u *userRepository) SuperadminExists(ctx context.Context) (bool, error) {
 	var exists bool
-	err := u.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE role = 'SUPERADMIN' AND deleted_at IS NULL)").Scan(&exists)
+	err := u.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE role = 'SUPERADMIN')").Scan(&exists)
 	return exists, err
 }
 
@@ -97,7 +96,7 @@ func (u *userRepository) CreateSuperadmin(ctx context.Context, username, email, 
 
 func (u *userRepository) GetSuperadminByUsername(ctx context.Context, username string) (model.User, error) {
 	var user model.User
-	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at, deleted_at FROM users WHERE username = $1 AND role = 'SUPERADMIN' AND deleted_at IS NULL", username).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at FROM users WHERE username = $1 AND role = 'SUPERADMIN'", username).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	return user, err
 }
 
@@ -106,13 +105,8 @@ func (u *userRepository) UpdateSuperadminEmail(ctx context.Context, id int, emai
 	return err
 }
 
-func (u *userRepository) GetByUsernameOrEmailWithDeleted(ctx context.Context, username, email string) (model.User, error) {
+func (u *userRepository) GetByUsernameOrEmail(ctx context.Context, username, email string) (model.User, error) {
 	var user model.User
-	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at, deleted_at FROM users WHERE username = $1 OR email = $2", username, email).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	err := u.pool.QueryRow(ctx, "SELECT id, username, email, password, role, created_at, updated_at FROM users WHERE username = $1 OR email = $2", username, email).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	return user, err
-}
-
-func (u *userRepository) Restore(ctx context.Context, user model.User) error {
-	_, err := u.pool.Exec(ctx, "UPDATE users SET password = $1, role = $2, updated_at = $3, deleted_at = NULL WHERE id = $4", user.Password, user.Role, time.Now(), user.ID)
-	return err
 }

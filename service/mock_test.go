@@ -38,14 +38,9 @@ func (m *MockSportRepository) Delete(ctx context.Context, id int) error {
 	return args.Error(0)
 }
 
-func (m *MockSportRepository) GetByNameAndTournamentWithDeleted(ctx context.Context, name string, tournamentID int) (model.Sport, error) {
+func (m *MockSportRepository) GetByNameAndTournament(ctx context.Context, name string, tournamentID int) (model.Sport, error) {
 	args := m.Called(ctx, name, tournamentID)
 	return args.Get(0).(model.Sport), args.Error(1)
-}
-
-func (m *MockSportRepository) Restore(ctx context.Context, sport model.Sport) error {
-	args := m.Called(ctx, sport)
-	return args.Error(0)
 }
 
 // MockTournamentRepository
@@ -93,16 +88,6 @@ func (m *MockTournamentRepository) GetByID(ctx context.Context, id int) (model.T
 	return args.Get(0).(model.Tournament), args.Error(1)
 }
 
-func (m *MockTournamentRepository) GetBySlugWithDeleted(ctx context.Context, slug string) (model.Tournament, error) {
-	args := m.Called(ctx, slug)
-	return args.Get(0).(model.Tournament), args.Error(1)
-}
-
-func (m *MockTournamentRepository) Restore(ctx context.Context, tournament model.Tournament) error {
-	args := m.Called(ctx, tournament)
-	return args.Error(0)
-}
-
 // MockUserRepository
 type MockUserRepository struct {
 	mock.Mock
@@ -123,14 +108,9 @@ func (m *MockUserRepository) GetById(ctx context.Context, id int) (model.User, e
 	return args.Get(0).(model.User), args.Error(1)
 }
 
-func (m *MockUserRepository) GetByUsernameOrEmailWithDeleted(ctx context.Context, username, email string) (model.User, error) {
+func (m *MockUserRepository) GetByUsernameOrEmail(ctx context.Context, username, email string) (model.User, error) {
 	args := m.Called(ctx, username, email)
 	return args.Get(0).(model.User), args.Error(1)
-}
-
-func (m *MockUserRepository) Restore(ctx context.Context, user model.User) error {
-	args := m.Called(ctx, user)
-	return args.Error(0)
 }
 
 func (m *MockUserRepository) Create(ctx context.Context, user model.CreateUserRequest) error {
@@ -203,14 +183,9 @@ func (m *MockTeamRepository) Delete(ctx context.Context, id int) error {
 	return args.Error(0)
 }
 
-func (m *MockTeamRepository) GetByNameAndSportWithDeleted(ctx context.Context, name string, sportID int) (model.Team, error) {
+func (m *MockTeamRepository) GetByNameAndSport(ctx context.Context, name string, sportID int) (model.Team, error) {
 	args := m.Called(ctx, name, sportID)
 	return args.Get(0).(model.Team), args.Error(1)
-}
-
-func (m *MockTeamRepository) Restore(ctx context.Context, team model.Team) error {
-	args := m.Called(ctx, team)
-	return args.Error(0)
 }
 
 // MockMatchRepository

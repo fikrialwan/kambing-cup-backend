@@ -17,8 +17,7 @@ type TeamRepository interface {
 	GetByID(ctx context.Context, id int) (model.Team, error)
 	Update(ctx context.Context, team model.Team) error
 	Delete(ctx context.Context, id int) error
-	GetByNameAndSportWithDeleted(ctx context.Context, name string, sportID int) (model.Team, error)
-	Restore(ctx context.Context, team model.Team) error
+	GetByNameAndSport(ctx context.Context, name string, sportID int) (model.Team, error)
 	CreateBulk(ctx context.Context, teams []model.Team) error
 }
 
@@ -53,7 +52,7 @@ func (r *teamRepository) CreateBulk(ctx context.Context, teams []model.Team) err
 
 func (r *teamRepository) GetAll(ctx context.Context) ([]model.Team, error) {
 	var teams []model.Team
-	rows, err := r.pool.Query(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at, deleted_at FROM teams WHERE deleted_at IS NULL")
+	rows, err := r.pool.Query(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at FROM teams")
 	if err != nil {
 		log.Print(err.Error())
 		return teams, err
@@ -62,7 +61,7 @@ func (r *teamRepository) GetAll(ctx context.Context) ([]model.Team, error) {
 
 	for rows.Next() {
 		var team model.Team
-		if err := rows.Scan(&team.ID, &team.SportID, &team.Name, &team.CompanyName, &team.CreatedAt, &team.UpdatedAt, &team.DeletedAt); err != nil {
+		if err := rows.Scan(&team.ID, &team.SportID, &team.Name, &team.CompanyName, &team.CreatedAt, &team.UpdatedAt); err != nil {
 			log.Print(err.Error())
 			return nil, err
 		}
@@ -74,7 +73,7 @@ func (r *teamRepository) GetAll(ctx context.Context) ([]model.Team, error) {
 
 func (r *teamRepository) GetByID(ctx context.Context, id int) (model.Team, error) {
 	var team model.Team
-	err := r.pool.QueryRow(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at, deleted_at FROM teams WHERE id = $1 AND deleted_at IS NULL", id).Scan(&team.ID, &team.SportID, &team.Name, &team.CompanyName, &team.CreatedAt, &team.UpdatedAt, &team.DeletedAt)
+	err := r.pool.QueryRow(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at FROM teams WHERE id = $1", id).Scan(&team.ID, &team.SportID, &team.Name, &team.CompanyName, &team.CreatedAt, &team.UpdatedAt)
 	return team, err
 }
 
@@ -84,18 +83,13 @@ func (r *teamRepository) Update(ctx context.Context, team model.Team) error {
 }
 
 func (r *teamRepository) Delete(ctx context.Context, id int) error {
-	_, err := r.pool.Exec(ctx, "UPDATE teams SET deleted_at = $1 WHERE id = $2", time.Now(), id)
+	_, err := r.pool.Exec(ctx, "DELETE FROM teams WHERE id = $1", id)
 	return err
 }
 
-func (r *teamRepository) GetByNameAndSportWithDeleted(ctx context.Context, name string, sportID int) (model.Team, error) {
+func (r *teamRepository) GetByNameAndSport(ctx context.Context, name string, sportID int) (model.Team, error) {
 	var team model.Team
-	err := r.pool.QueryRow(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at, deleted_at FROM teams WHERE name = $1 AND sport_id = $2", name, sportID).Scan(&team.ID, &team.SportID, &team.Name, &team.CompanyName, &team.CreatedAt, &team.UpdatedAt, &team.DeletedAt)
+	err := r.pool.QueryRow(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at FROM teams WHERE name = $1 AND sport_id = $2", name, sportID).Scan(&team.ID, &team.SportID, &team.Name, &team.CompanyName, &team.CreatedAt, &team.UpdatedAt)
 	return team, err
-}
-
-func (r *teamRepository) Restore(ctx context.Context, team model.Team) error {
-	_, err := r.pool.Exec(ctx, "UPDATE teams SET updated_at = $1, deleted_at = NULL WHERE id = $2", time.Now(), team.ID)
-	return err
 }
 

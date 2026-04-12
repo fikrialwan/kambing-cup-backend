@@ -90,19 +90,14 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var isDeleted bool
-	if existing, err := s.tournamentRepo.GetBySlugWithDeleted(r.Context(), tournament.Slug); err == nil {
-		if existing.DeletedAt == nil {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentSlugTaken, "Slug is already taken")
-			return
-		}
-		isDeleted = true
-		tournament.ID = existing.ID
+	if _, err := s.tournamentRepo.GetBySlug(r.Context(), tournament.Slug); err == nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentSlugTaken, "Slug is already taken")
+		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
-	log.Printf("GetBySlugWithDeleted took %v", time.Since(checkpoint))
+	log.Printf("GetBySlug took %v", time.Since(checkpoint))
 	checkpoint = time.Now()
 
 	if r.FormValue("is_show") != "" {
@@ -156,23 +151,13 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 
 	tournament.ImageUrl = fmt.Sprintf("/storage/tournament/%s", fileName)
 
-	if isDeleted {
-		if err := s.tournamentRepo.Restore(r.Context(), tournament); err != nil {
-			log.Print(err.Error())
-			helper.DeleteFile(filepath.Join(tournamentDir, fileName))
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-		helper.WriteResponse(w, http.StatusOK, true, nil, "", "Tournament restored")
-	} else {
-		if err := s.tournamentRepo.Create(r.Context(), tournament); err != nil {
-			log.Print(err.Error())
-			helper.DeleteFile(filepath.Join(tournamentDir, fileName))
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Tournament created")
+	if err := s.tournamentRepo.Create(r.Context(), tournament); err != nil {
+		log.Print(err.Error())
+		helper.DeleteFile(filepath.Join(tournamentDir, fileName))
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
 	}
+	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Tournament created")
 	go func() {
 		if err := s.SyncToFirebase(context.Background()); err != nil {
 			fmt.Printf("Error syncing to Firebase: %v\n", err)

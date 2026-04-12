@@ -26,7 +26,10 @@ type Match struct {
 	StartDate   time.Time   `json:"start_date" validate:"required"`
 	WinnerID    *int        `json:"winner_id"`
 	ImageUrl    *string     `json:"image_url"`
+	HomeName    *string     `json:"home_name,omitzero"`
+	HomeCompany *string     `json:"home_company,omitzero"`
+	AwayName    *string     `json:"away_name,omitzero"`
+	AwayCompany *string     `json:"away_company,omitzero"`
 	CreatedAt   time.Time   `json:"-"`
 	UpdatedAt   time.Time   `json:"-"`
-	DeletedAt   *time.Time  `json:"-"`
 }

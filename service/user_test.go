@@ -20,7 +20,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		mockRepo := new(MockUserRepository)
 		svc := service.NewUserService(mockRepo)
 
-		mockRepo.On("GetByUsernameOrEmailWithDeleted", mock.Anything, "testuser", "test@example.com").Return(model.User{}, pgx.ErrNoRows)
+		mockRepo.On("GetByUsernameOrEmail", mock.Anything, "testuser", "test@example.com").Return(model.User{}, pgx.ErrNoRows)
 		mockRepo.On("Create", mock.Anything, mock.AnythingOfType("model.CreateUserRequest")).Return(nil)
 
 		reqBody := model.CreateUserRequest{

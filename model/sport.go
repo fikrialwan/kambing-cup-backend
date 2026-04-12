@@ -12,5 +12,4 @@ type Sport struct {
 	ImageUrl     string     `json:"image_url"`
 	CreatedAt    time.Time  `json:"-"`
 	UpdatedAt    time.Time  `json:"-"`
-	DeletedAt    *time.Time `json:"-"`
 }

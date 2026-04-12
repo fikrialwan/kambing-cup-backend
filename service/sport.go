@@ -154,19 +154,14 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var isDeleted bool
-	if existing, err := s.sportRepo.GetByNameAndTournamentWithDeleted(r.Context(), sport.Name, sport.TournamentID); err == nil {
-		if existing.DeletedAt == nil {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrSportNameTaken, "Sport name is already taken in this tournament")
-			return
-		}
-		isDeleted = true
-		sport.ID = existing.ID
+	if _, err := s.sportRepo.GetByNameAndTournament(r.Context(), sport.Name, sport.TournamentID); err == nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrSportNameTaken, "Sport name is already taken in this tournament")
+		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
-	log.Printf("GetByNameAndTournamentWithDeleted took %v", time.Since(checkpoint))
+	log.Printf("GetByNameAndTournament took %v", time.Since(checkpoint))
 	checkpoint = time.Now()
 
 	file, handler, err := r.FormFile("image")
@@ -195,27 +190,16 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 	log.Printf("File handling took %v", time.Since(checkpoint))
 	checkpoint = time.Now()
 
-	if isDeleted {
-		if err := s.sportRepo.Restore(r.Context(), sport); err != nil {
-			log.Print(err.Error())
-			if sport.ImageUrl != "" {
-				helper.DeleteFile(filepath.Join(s.storagePath, sport.ImageUrl))
-			}
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
+	if err := s.sportRepo.Create(r.Context(), sport); err != nil {
+		log.Print(err.Error())
+		if sport.ImageUrl != "" {
+			helper.DeleteFile(filepath.Join(s.storagePath, sport.ImageUrl))
 		}
-		helper.WriteResponse(w, http.StatusOK, true, nil, "", "Sport restored")
-	} else {
-		if err := s.sportRepo.Create(r.Context(), sport); err != nil {
-			log.Print(err.Error())
-			if sport.ImageUrl != "" {
-				helper.DeleteFile(filepath.Join(s.storagePath, sport.ImageUrl))
-			}
-			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Sport created")
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
 	}
+	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Sport created")
+
 	go func() {
 		if err := s.SyncToFirebase(context.Background(), sport.TournamentID); err != nil {
 			fmt.Printf("Error syncing to Firebase: %v\n", err)
