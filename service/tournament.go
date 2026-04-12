@@ -240,6 +240,17 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 		tournament.ImageUrl = fmt.Sprintf("/storage/tournament/%s", fileName)
 	}
 
+	if tournament.IsActive {
+		if err := s.tournamentRepo.DeactivateAllExcept(r.Context(), tournament.ID); err != nil {
+			log.Print(err.Error())
+			if fileName != "" {
+				helper.DeleteFile(filepath.Join(s.storagePath, tournament.ImageUrl))
+			}
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+			return
+		}
+	}
+
 	if err := s.tournamentRepo.Update(r.Context(), tournament); err != nil {
 		log.Print(err.Error())
 		if fileName != "" {
@@ -267,6 +278,21 @@ func (s *TournamentService) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Tournament deleted")
+}
+
+func (s *TournamentService) GetActive(w http.ResponseWriter, r *http.Request) {
+	tournament, err := s.tournamentRepo.GetActive(r.Context())
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
+			return
+		}
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
+	helper.WriteResponse(w, http.StatusOK, true, tournament, "", "Active tournament retrieved")
 }
 
 func (s *TournamentService) Get(w http.ResponseWriter, r *http.Request) {

@@ -11,8 +11,10 @@ import (
 
 type TournamentRepository interface {
 	GetAll(ctx context.Context) ([]model.Tournament, error)
+	GetActive(ctx context.Context) (model.Tournament, error)
 	Create(ctx context.Context, tournament model.Tournament) error
 	Update(ctx context.Context, tournament model.Tournament) error
+	DeactivateAllExcept(ctx context.Context, id int) error
 	Delete(ctx context.Context, id int) error
 	GetBySlug(ctx context.Context, slug string) (model.Tournament, error)
 	GetByID(ctx context.Context, id int) (model.Tournament, error)
@@ -48,6 +50,12 @@ func (T *tournamentRepository) GetAll(ctx context.Context) ([]model.Tournament, 
 	return tournaments, err
 }
 
+func (T *tournamentRepository) GetActive(ctx context.Context) (model.Tournament, error) {
+	var tournament model.Tournament
+	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at, deleted_at FROM tournaments WHERE is_active = true AND deleted_at IS NULL LIMIT 1").Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt, &tournament.DeletedAt)
+	return tournament, err
+}
+
 func (T *tournamentRepository) Create(ctx context.Context, tournament model.Tournament) error {
 	_, err := T.pool.Exec(ctx, "INSERT INTO tournaments (name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, tournament.TotalSurah, time.Now(), time.Now())
 
@@ -62,6 +70,11 @@ func (T *tournamentRepository) Update(ctx context.Context, tournament model.Tour
 
 	_, err := T.pool.Exec(ctx, "UPDATE tournaments SET name = $1, slug = $2, is_show = $3, is_active = $4, image_url = $5, total_surah = $6, updated_at = $7 WHERE id = $8", tournament.Name, tournament.Slug, tournament.IsShow, tournament.IsActive, tournament.ImageUrl, tournament.TotalSurah, time.Now(), tournament.ID)
 
+	return err
+}
+
+func (T *tournamentRepository) DeactivateAllExcept(ctx context.Context, id int) error {
+	_, err := T.pool.Exec(ctx, "UPDATE tournaments SET is_active = false, updated_at = $1 WHERE id != $2 AND deleted_at IS NULL", time.Now(), id)
 	return err
 }
 
