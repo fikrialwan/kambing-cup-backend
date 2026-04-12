@@ -20,46 +20,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestTournamentService_GetActiveSlug(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		mockRepo := new(MockTournamentRepository)
-		svc := service.NewTournamentService(mockRepo, ".", nil)
-
-		mockRepo.On("GetActiveSlug", mock.Anything).Return("active-slug", nil)
-
-		req := httptest.NewRequest("GET", "/public/tournament/active/slug", nil)
-		w := httptest.NewRecorder()
-
-		svc.GetActiveSlug(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-		var resp helper.Response
-		json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.True(t, resp.Success)
-		assert.Equal(t, "active-slug", resp.Data)
-		mockRepo.AssertExpectations(t)
-	})
-
-	t.Run("NotFound", func(t *testing.T) {
-		mockRepo := new(MockTournamentRepository)
-		svc := service.NewTournamentService(mockRepo, ".", nil)
-
-		mockRepo.On("GetActiveSlug", mock.Anything).Return("", pgx.ErrNoRows)
-
-		req := httptest.NewRequest("GET", "/public/tournament/active/slug", nil)
-		w := httptest.NewRecorder()
-
-		svc.GetActiveSlug(w, req)
-
-		assert.Equal(t, http.StatusNotFound, w.Code)
-		var resp helper.Response
-		json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.False(t, resp.Success)
-		assert.Equal(t, "003", resp.ErrorCode)
-		mockRepo.AssertExpectations(t)
-	})
-}
-
 func TestTournamentService_Get(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockTournamentRepository)

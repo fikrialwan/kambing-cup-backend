@@ -1018,6 +1018,28 @@
 					"name": "tournament",
 					"item": [
 						{
+							"name": "getActive",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/public/tournament/active",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"public",
+										"tournament",
+										"active"
+									]
+								}
+							},
+							"response": []
+						},
+						{
 							"name": "get",
 							"request": {
 								"auth": {

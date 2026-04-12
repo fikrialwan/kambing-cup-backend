@@ -12,7 +12,6 @@ import (
 type TournamentRepository interface {
 	GetAll(ctx context.Context) ([]model.Tournament, error)
 	GetActive(ctx context.Context) (model.Tournament, error)
-	GetActiveSlug(ctx context.Context) (string, error)
 	Create(ctx context.Context, tournament model.Tournament) error
 	Update(ctx context.Context, tournament model.Tournament) error
 	DeactivateAllExcept(ctx context.Context, id int) error
@@ -53,12 +52,6 @@ func (T *tournamentRepository) GetActive(ctx context.Context) (model.Tournament,
 	var tournament model.Tournament
 	err := T.pool.QueryRow(ctx, "SELECT id, name, slug, is_show, is_active, image_url, total_surah, created_at, updated_at FROM tournaments WHERE is_active = true LIMIT 1").Scan(&tournament.ID, &tournament.Name, &tournament.Slug, &tournament.IsShow, &tournament.IsActive, &tournament.ImageUrl, &tournament.TotalSurah, &tournament.CreatedAt, &tournament.UpdatedAt)
 	return tournament, err
-}
-
-func (T *tournamentRepository) GetActiveSlug(ctx context.Context) (string, error) {
-	var slug string
-	err := T.pool.QueryRow(ctx, "SELECT slug FROM tournaments WHERE is_active = true LIMIT 1").Scan(&slug)
-	return slug, err
 }
 
 func (T *tournamentRepository) Create(ctx context.Context, tournament model.Tournament) error {

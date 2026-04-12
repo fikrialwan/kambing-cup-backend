@@ -315,21 +315,6 @@ func (s *TournamentService) GetActive(w http.ResponseWriter, r *http.Request) {
 	helper.WriteResponse(w, http.StatusOK, true, tournament, "", "Active tournament retrieved")
 }
 
-func (s *TournamentService) GetActiveSlug(w http.ResponseWriter, r *http.Request) {
-	slug, err := s.tournamentRepo.GetActiveSlug(r.Context())
-
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, "No active tournament found")
-			return
-		}
-		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-		return
-	}
-
-	helper.WriteResponse(w, http.StatusOK, true, slug, "", "Active tournament slug retrieved")
-}
-
 func (s *TournamentService) Get(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 

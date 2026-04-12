@@ -58,11 +58,6 @@ func (m *MockTournamentRepository) GetActive(ctx context.Context) (model.Tournam
 	return args.Get(0).(model.Tournament), args.Error(1)
 }
 
-func (m *MockTournamentRepository) GetActiveSlug(ctx context.Context) (string, error) {
-	args := m.Called(ctx)
-	return args.String(0), args.Error(1)
-}
-
 func (m *MockTournamentRepository) Create(ctx context.Context, tournament model.Tournament) error {
 	args := m.Called(ctx, tournament)
 	return args.Error(0)
