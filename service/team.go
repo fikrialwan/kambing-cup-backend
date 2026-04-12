@@ -52,7 +52,7 @@ func (s *TeamService) SyncToFirebase(ctx context.Context, sportID int) error {
 		return err
 	}
 
-	teams, err := s.teamRepo.GetAll(ctx)
+	teams, err := s.teamRepo.GetAll(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,18 @@ func (s *TeamService) SyncToFirebase(ctx context.Context, sportID int) error {
 }
 
 func (s *TeamService) GetAll(w http.ResponseWriter, r *http.Request) {
-	teams, err := s.teamRepo.GetAll(r.Context())
+	sportIDStr := r.URL.Query().Get("sportId")
+	var sportID int
+	var err error
+	if sportIDStr != "" {
+		sportID, err = strconv.Atoi(sportIDStr)
+		if err != nil {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid sportId")
+			return
+		}
+	}
+
+	teams, err := s.teamRepo.GetAll(r.Context(), sportID)
 	if err != nil {
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return

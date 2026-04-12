@@ -123,3 +123,43 @@ func TestTeamService_GetByID(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 }
+
+func TestTeamService_GetAll(t *testing.T) {
+	t.Run("Success without filter", func(t *testing.T) {
+		mockRepo := new(MockTeamRepository)
+		svc := service.NewTeamService(mockRepo, nil, nil, nil, nil)
+
+		expectedTeams := []model.Team{{ID: 1, Name: "Team A"}}
+		mockRepo.On("GetAll", mock.Anything, 0).Return(expectedTeams, nil)
+
+		req := httptest.NewRequest("GET", "/team", nil)
+		w := httptest.NewRecorder()
+
+		svc.GetAll(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success with filter", func(t *testing.T) {
+		mockRepo := new(MockTeamRepository)
+		svc := service.NewTeamService(mockRepo, nil, nil, nil, nil)
+
+		expectedTeams := []model.Team{{ID: 1, Name: "Team A", SportID: 1}}
+		mockRepo.On("GetAll", mock.Anything, 1).Return(expectedTeams, nil)
+
+		req := httptest.NewRequest("GET", "/team?sportId=1", nil)
+		w := httptest.NewRecorder()
+
+		svc.GetAll(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+		mockRepo.AssertExpectations(t)
+	})
+}

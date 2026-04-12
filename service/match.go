@@ -56,7 +56,7 @@ func (s *MatchService) SyncToFirebase(ctx context.Context, sportID int) error {
 		return err
 	}
 
-	teams, err := s.teamRepo.GetAll(ctx)
+	teams, err := s.teamRepo.GetAll(ctx, 0)
 	if err != nil {
 		return err
 	}

@@ -13,7 +13,7 @@ import (
 
 type TeamRepository interface {
 	Create(ctx context.Context, team model.Team) error
-	GetAll(ctx context.Context) ([]model.Team, error)
+	GetAll(ctx context.Context, sportID int) ([]model.Team, error)
 	GetByID(ctx context.Context, id int) (model.Team, error)
 	Update(ctx context.Context, team model.Team) error
 	Delete(ctx context.Context, id int) error
@@ -50,9 +50,17 @@ func (r *teamRepository) CreateBulk(ctx context.Context, teams []model.Team) err
 	return err
 }
 
-func (r *teamRepository) GetAll(ctx context.Context) ([]model.Team, error) {
+func (r *teamRepository) GetAll(ctx context.Context, sportID int) ([]model.Team, error) {
 	var teams []model.Team
-	rows, err := r.pool.Query(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at FROM teams")
+	var rows pgx.Rows
+	var err error
+
+	if sportID != 0 {
+		rows, err = r.pool.Query(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at FROM teams WHERE sport_id = $1", sportID)
+	} else {
+		rows, err = r.pool.Query(ctx, "SELECT id, sport_id, name, company_name, created_at, updated_at FROM teams")
+	}
+
 	if err != nil {
 		log.Print(err.Error())
 		return teams, err

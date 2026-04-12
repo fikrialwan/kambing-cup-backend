@@ -163,8 +163,8 @@ func (m *MockTeamRepository) CreateBulk(ctx context.Context, teams []model.Team)
 	return args.Error(0)
 }
 
-func (m *MockTeamRepository) GetAll(ctx context.Context) ([]model.Team, error) {
-	args := m.Called(ctx)
+func (m *MockTeamRepository) GetAll(ctx context.Context, sportID int) ([]model.Team, error) {
+	args := m.Called(ctx, sportID)
 	return args.Get(0).([]model.Team), args.Error(1)
 }
 
