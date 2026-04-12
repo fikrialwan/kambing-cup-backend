@@ -92,12 +92,14 @@ func (s *TeamService) SyncToFirebase(ctx context.Context, sportID int) error {
 					"resultText":   helper.StringValue(curr.HomeScore),
 					"isWinner":     curr.WinnerID != nil && curr.HomeID != nil && *curr.WinnerID == *curr.HomeID,
 					"canEditTeams": canEdit,
+					"teams_id":     curr.HomeID,
 				},
 				map[string]interface{}{
 					"name":         awayName,
 					"resultText":   helper.StringValue(curr.AwayScore),
 					"isWinner":     curr.WinnerID != nil && curr.AwayID != nil && *curr.WinnerID == *curr.AwayID,
 					"canEditTeams": canEdit,
+					"teams_id":     curr.AwayID,
 				},
 			},
 		}

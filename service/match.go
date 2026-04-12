@@ -99,12 +99,14 @@ func (s *MatchService) SyncToFirebase(ctx context.Context, sportID int) error {
 					ResultText:   homeScore,
 					IsWinner:     curr.WinnerID != nil && curr.HomeID != nil && *curr.WinnerID == *curr.HomeID,
 					CanEditTeams: canEdit,
+					TeamsID:      curr.HomeID,
 				},
 				{
 					Name:         awayName,
 					ResultText:   awayScore,
 					IsWinner:     curr.WinnerID != nil && curr.AwayID != nil && *curr.WinnerID == *curr.AwayID,
 					CanEditTeams: canEdit,
+					TeamsID:      curr.AwayID,
 				},
 			},
 			StartTime:           curr.StartDate.Format("15:04"),
@@ -400,6 +402,7 @@ type FirebaseParticipant struct {
 	IsWinner     bool   `json:"isWinner"`
 	Name         string `json:"name,omitempty"`
 	ResultText   string `json:"resultText,omitempty"`
+	TeamsID      *int   `json:"teams_id,omitempty"`
 }
 
 type FirebaseMatch struct {
