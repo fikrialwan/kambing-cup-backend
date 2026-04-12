@@ -1,0 +1,2 @@
+ALTER TABLE matches DROP COLUMN winner;
+ALTER TABLE matches ADD COLUMN winner_id INTEGER REFERENCES teams(id);

@@ -97,19 +97,22 @@ func (s *MatchService) SyncToFirebase(ctx context.Context, sportID int) error {
 				{
 					Name:         homeName,
 					ResultText:   homeScore,
-					IsWinner:     curr.Winner != nil && homeName != "" && *curr.Winner == homeName,
+					IsWinner:     curr.WinnerID != nil && curr.HomeID != nil && *curr.WinnerID == *curr.HomeID,
 					CanEditTeams: canEdit,
 				},
 				{
 					Name:         awayName,
 					ResultText:   awayScore,
-					IsWinner:     curr.Winner != nil && awayName != "" && *curr.Winner == awayName,
+					IsWinner:     curr.WinnerID != nil && curr.AwayID != nil && *curr.WinnerID == *curr.AwayID,
 					CanEditTeams: canEdit,
 				},
 			},
 			StartTime:           curr.StartDate.Format("15:04"),
 			State:               string(curr.State),
 			TournamentRoundText: curr.Round,
+		}
+		if curr.ImageUrl != nil {
+			fbMatch.ImageUrl = *curr.ImageUrl
 		}
 		switch curr.Round {
 		case "Final":
@@ -262,18 +265,26 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 		existingMatch.ImageUrl = &imageUrl
 		existingMatch.State = model.LIVE
 	} else if existingMatch.State == model.LIVE {
-		if newState != model.DONE {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchInvalidStateTransition, "Can only update status from LIVE to DONE")
+		if newState != "" && newState != model.LIVE && newState != model.DONE {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchInvalidStateTransition, "Can only update status from LIVE to DONE or update scores")
 			return
 		}
-		winner := r.FormValue("winner")
-		if winner == "" {
-			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchWinnerRequired, "Winner is required when finishing match")
-			return
+
+		if newState == model.DONE {
+			winnerIDStr := r.FormValue("winner_id")
+			if winnerIDStr == "" {
+				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchWinnerRequired, "Winner ID is required when finishing match")
+				return
+			}
+			winnerID, err := strconv.Atoi(winnerIDStr)
+			if err != nil {
+				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid winner_id")
+				return
+			}
+			existingMatch.WinnerID = &winnerID
+			existingMatch.State = model.DONE
 		}
-		existingMatch.Winner = &winner
-		existingMatch.State = model.DONE
-		
+
 		homeScore := r.FormValue("home_score")
 		awayScore := r.FormValue("away_score")
 		if homeScore != "" {
@@ -294,36 +305,19 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Logic to update next round based on winner
-	if existingMatch.State == model.DONE && existingMatch.NextRoundID != nil {
+	// Logic to update next round based on winner_id
+	if existingMatch.State == model.DONE && existingMatch.NextRoundID != nil && existingMatch.WinnerID != nil {
 		nextMatch, err := s.matchRepo.GetByID(r.Context(), *existingMatch.NextRoundID)
 		if err == nil {
-			// Find winner's ID
-			var winnerID *int
-			if existingMatch.HomeID != nil {
-				team, err := s.teamRepo.GetByID(r.Context(), *existingMatch.HomeID)
-				if err == nil && team.Name == *existingMatch.Winner {
-					winnerID = existingMatch.HomeID
-				}
+			if existingMatch.RoundID%10 == 1 {
+				nextMatch.HomeID = existingMatch.WinnerID
+			} else {
+				nextMatch.AwayID = existingMatch.WinnerID
 			}
-			if winnerID == nil && existingMatch.AwayID != nil {
-				team, err := s.teamRepo.GetByID(r.Context(), *existingMatch.AwayID)
-				if err == nil && team.Name == *existingMatch.Winner {
-					winnerID = existingMatch.AwayID
-				}
-			}
-
-			if winnerID != nil {
-				if existingMatch.RoundID%10 == 1 {
-					nextMatch.HomeID = winnerID
-				} else {
-					nextMatch.AwayID = winnerID
-				}
-				s.matchRepo.Update(r.Context(), nextMatch)
-				go func() {
-					s.SyncToFirebase(context.Background(), nextMatch.SportID)
-				}()
-			}
+			s.matchRepo.Update(r.Context(), nextMatch)
+			go func() {
+				s.SyncToFirebase(context.Background(), nextMatch.SportID)
+			}()
 		}
 	}
 
@@ -405,6 +399,71 @@ type FirebaseMatch struct {
 	StartTime           string                 `json:"startTime"`
 	State               string                 `json:"state"`
 	TournamentRoundText string                 `json:"tournamentRoundText"`
+	ImageUrl            string                 `json:"imageUrl,omitempty"`
+}
+
+func (s *MatchService) GetTeamHistoryImages(w http.ResponseWriter, r *http.Request) {
+	matchID, err := strconv.Atoi(chi.URLParam(r, "matchId"))
+	if err != nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid matchId")
+		return
+	}
+
+	teamID, err := strconv.Atoi(chi.URLParam(r, "teamId"))
+	if err != nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid teamId")
+		return
+	}
+
+	currentMatch, err := s.matchRepo.GetByID(r.Context(), matchID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, "Match not found")
+			return
+		}
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
+	matches, err := s.matchRepo.GetBySportID(r.Context(), currentMatch.SportID)
+	if err != nil {
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
+	type HistoryImage struct {
+		MatchID  int    `json:"match_id"`
+		Round    string `json:"round"`
+		ImageUrl string `json:"image_url"`
+	}
+
+	var history []HistoryImage
+	currentRoundIDStr := strconv.Itoa(currentMatch.RoundID)
+
+	for _, m := range matches {
+		// History must have an image
+		if m.ImageUrl == nil || *m.ImageUrl == "" {
+			continue
+		}
+
+		// Must involve the team
+		if (m.HomeID != nil && *m.HomeID == teamID) || (m.AwayID != nil && *m.AwayID == teamID) {
+			mRoundIDStr := strconv.Itoa(m.RoundID)
+			
+			// History matches are earlier rounds, so they have LONGER RoundID strings
+			// AND they must lead to the current round (currentRoundID is a prefix of mRoundID)
+			// Example: current 11 (semifinal), history 111 (quarterfinal)
+			if len(mRoundIDStr) > len(currentRoundIDStr) && strings.HasPrefix(mRoundIDStr, currentRoundIDStr) {
+				history = append(history, HistoryImage{
+					MatchID:  m.ID,
+					Round:    m.Round,
+					ImageUrl: *m.ImageUrl,
+				})
+			}
+		}
+	}
+
+	helper.WriteResponse(w, http.StatusOK, true, history, "", "Team history images retrieved")
 }
 
 func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {

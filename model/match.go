@@ -24,7 +24,7 @@ type Match struct {
 	Round       string      `json:"round" validate:"required"`
 	State       MatchState  `json:"state" validate:"required"`
 	StartDate   time.Time   `json:"start_date" validate:"required"`
-	Winner      *string     `json:"winner"`
+	WinnerID    *int        `json:"winner_id"`
 	ImageUrl    *string     `json:"image_url"`
 	CreatedAt   time.Time   `json:"-"`
 	UpdatedAt   time.Time   `json:"-"`

@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -86,9 +87,9 @@ func TestMatchService_Create(t *testing.T) {
 		mockMatchRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Match")).Return(nil)
 
 		reqBody := model.Match{
-			SportID:   1,
-			Round:     "Final",
-			State:     model.SOON,
+			SportID: 1,
+			Round:   "Final",
+			State:   model.SOON,
 		}
 		body, _ := json.Marshal(reqBody)
 		req := httptest.NewRequest("POST", "/match", bytes.NewBuffer(body))
@@ -146,7 +147,7 @@ func TestMatchService_Generate(t *testing.T) {
 		// Setup mocks
 		mockSportRepo.On("GetByID", mock.Anything, 1).Return(model.Sport{ID: 1, TournamentID: 1, Slug: "futsal"}, nil)
 		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1, Slug: "agi-15"}, nil)
-		
+
 		mockMatchRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Match")).Return(nil)
 
 		// Firebase mocks
@@ -197,7 +198,7 @@ func TestMatchService_Update(t *testing.T) {
 		body := new(bytes.Buffer)
 		writer := multipart.NewWriter(body)
 		writer.WriteField("state", "LIVE")
-		
+
 		header := make(textproto.MIMEHeader)
 		header.Set("Content-Disposition", `form-data; name="image"; filename="test.png"`)
 		header.Set("Content-Type", "image/png")
@@ -254,15 +255,14 @@ func TestMatchService_Update(t *testing.T) {
 		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTeamRepo, mockTournamentRepo, nil)
 
 		id := 1
-		winner := "Team A"
+		winnerID := 10
 		existingMatch := model.Match{ID: id, State: model.LIVE, SportID: 1, HomeID: helper.IntPtr(10), RoundID: 11, NextRoundID: helper.IntPtr(2)}
 		mockMatchRepo.On("GetByID", mock.Anything, id).Return(existingMatch, nil)
 		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
-			return m.State == model.DONE && *m.Winner == winner
+			return m.State == model.DONE && m.WinnerID != nil && *m.WinnerID == winnerID
 		})).Return(nil)
 
 		// Next round update mocks
-		mockTeamRepo.On("GetByID", mock.Anything, 10).Return(model.Team{ID: 10, Name: "Team A"}, nil)
 		nextMatch := model.Match{ID: 2, SportID: 1}
 		mockMatchRepo.On("GetByID", mock.Anything, 2).Return(nextMatch, nil)
 		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
@@ -272,7 +272,7 @@ func TestMatchService_Update(t *testing.T) {
 		body := new(bytes.Buffer)
 		writer := multipart.NewWriter(body)
 		writer.WriteField("state", "DONE")
-		writer.WriteField("winner", winner)
+		writer.WriteField("winner_id", strconv.Itoa(winnerID))
 		writer.Close()
 
 		req := httptest.NewRequest("PUT", "/match/1", body)
@@ -286,6 +286,45 @@ func TestMatchService_Update(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		mockMatchRepo.AssertExpectations(t)
-		mockTeamRepo.AssertExpectations(t)
+	})
+}
+
+func TestMatchService_GetTeamHistoryImages(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil, nil)
+
+		matchID := 1
+		teamID := 10
+		currentMatch := model.Match{ID: matchID, RoundID: 1, SportID: 1}
+
+		img1 := "img1.png"
+		img2 := "img2.png"
+		allMatches := []model.Match{
+			{ID: 11, RoundID: 11, SportID: 1, HomeID: helper.IntPtr(teamID), ImageUrl: &img1, Round: "Semifinal"},
+			{ID: 111, RoundID: 111, SportID: 1, AwayID: helper.IntPtr(teamID), ImageUrl: &img2, Round: "8 Besar"},
+			{ID: 12, RoundID: 12, SportID: 1, HomeID: helper.IntPtr(20), ImageUrl: &img1}, // Other bracket side
+		}
+
+		mockMatchRepo.On("GetByID", mock.Anything, matchID).Return(currentMatch, nil)
+		mockMatchRepo.On("GetBySportID", mock.Anything, 1).Return(allMatches, nil)
+
+		req := httptest.NewRequest("GET", "/match/1/history/10", nil)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("matchId", "1")
+		rctx.URLParams.Add("teamId", "10")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+
+		svc.GetTeamHistoryImages(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+
+		data := resp.Data.([]interface{})
+		assert.Equal(t, 2, len(data))
+		mockMatchRepo.AssertExpectations(t)
 	})
 }

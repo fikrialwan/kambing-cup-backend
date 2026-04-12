@@ -365,6 +365,32 @@
 			"name": "Match",
 			"item": [
 				{
+					"name": "getHistoryImages",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/match/1/history/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"match",
+								"1",
+								"history",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "generate",
 					"request": {
 						"method": "POST",
@@ -564,8 +590,8 @@
 									"type": "text"
 								},
 								{
-									"key": "winner",
-									"value": "Team A",
+									"key": "winner_id",
+									"value": "1",
 									"type": "text"
 								},
 								{

@@ -21,6 +21,7 @@ func Match(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Handler {
 	ms := service.NewMatchService(mr, sr, ter, tr, firebaseDb)
 	r.Get("/", ms.GetAll)
 	r.Get("/{id}", ms.GetByID)
+	r.Get("/{matchId}/history/{teamId}", ms.GetTeamHistoryImages)
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Auth)
