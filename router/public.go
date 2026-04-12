@@ -16,6 +16,7 @@ func Public(pool *pgxpool.Pool) http.Handler {
 	ts := service.NewTournamentService(tr, ".", nil)
 
 	r.Get("/tournament/active", ts.GetActive)
+	r.Get("/tournament/active/slug", ts.GetActiveSlug)
 	r.Get("/tournament/{slug}", ts.Get)
 
 	return r
