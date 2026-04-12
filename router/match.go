@@ -32,6 +32,7 @@ func Match(pool *pgxpool.Pool, firebaseClient *db.Client) http.Handler {
 		r.Post("/generate", ms.Generate)
 		r.Put("/{id}", ms.Update)
 		r.Delete("/{id}", ms.Delete)
+		r.Delete("/sport/{sportId}", ms.DeleteBySportID)
 	})
 
 	return r

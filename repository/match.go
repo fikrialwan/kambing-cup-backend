@@ -16,6 +16,7 @@ type MatchRepository interface {
 	GetByID(ctx context.Context, id int) (model.Match, error)
 	Update(ctx context.Context, match model.Match) error
 	Delete(ctx context.Context, id int) error
+	DeleteBySportID(ctx context.Context, sportID int) error
 }
 
 type matchRepository struct {
@@ -86,5 +87,10 @@ func (r *matchRepository) Update(ctx context.Context, match model.Match) error {
 
 func (r *matchRepository) Delete(ctx context.Context, id int) error {
 	_, err := r.pool.Exec(ctx, "UPDATE matches SET deleted_at = $1 WHERE id = $2", time.Now(), id)
+	return err
+}
+
+func (r *matchRepository) DeleteBySportID(ctx context.Context, sportID int) error {
+	_, err := r.pool.Exec(ctx, "UPDATE matches SET deleted_at = $1 WHERE sport_id = $2 AND deleted_at IS NULL", time.Now(), sportID)
 	return err
 }

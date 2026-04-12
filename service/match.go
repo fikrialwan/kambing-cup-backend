@@ -156,6 +156,21 @@ func (s *MatchService) Delete(w http.ResponseWriter, r *http.Request) {
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Match deleted")
 }
 
+func (s *MatchService) DeleteBySportID(w http.ResponseWriter, r *http.Request) {
+	sportID, err := strconv.Atoi(chi.URLParam(r, "sportId"))
+	if err != nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid sportId")
+		return
+	}
+
+	if err := s.matchRepo.DeleteBySportID(r.Context(), sportID); err != nil {
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
+	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Matches deleted")
+}
+
 type GenerateMatchesRequest struct {
 	TeamCount int `json:"team_count"`
 	SportID   int `json:"sport_id"`
