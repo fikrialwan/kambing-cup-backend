@@ -2,6 +2,7 @@ package config
 
 import (
 	"kambing-cup-backend/router"
+	"kambing-cup-backend/service"
 	"net/http"
 	"os"
 	"strings"
@@ -38,12 +39,14 @@ func SetupRouter(pool *pgxpool.Pool, firebaseClient *db.Client) *chi.Mux {
 		w.Write([]byte("welcome"))
 	})
 
+	fbWrapper := &service.RealFirebaseClient{Client: firebaseClient}
+
 	r.Mount("/user", router.User(pool))
 	r.Mount("/auth", router.Auth(pool))
-	r.Mount("/tournament", router.Tournament(pool))
-	r.Mount("/sport", router.Sport(pool))
-	r.Mount("/team", router.Team(pool))
-	r.Mount("/match", router.Match(pool, firebaseClient))
+	r.Mount("/tournament", router.Tournament(pool, fbWrapper))
+	r.Mount("/sport", router.Sport(pool, fbWrapper))
+	r.Mount("/team", router.Team(pool, fbWrapper))
+	r.Mount("/match", router.Match(pool, fbWrapper))
 	r.Mount("/public", router.Public(pool))
 
 	fs := http.FileServer(http.Dir("./storage"))

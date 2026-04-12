@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Tournament(pool *pgxpool.Pool) http.Handler {
+func Tournament(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Handler {
 	r := chi.NewRouter()
 
 	tr := repository.NewTournamentRepository(pool)
-	ts := service.NewTournamentService(tr, ".")
+	ts := service.NewTournamentService(tr, ".", firebaseDb)
 
 	r.Use(middleware.Auth)
 	r.Use(middleware.AdminAuth)

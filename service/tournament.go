@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"kambing-cup-backend/helper"
@@ -20,10 +21,29 @@ import (
 type TournamentService struct {
 	tournamentRepo repository.TournamentRepository
 	storagePath    string
+	firebaseDb     FirebaseClient
 }
 
-func NewTournamentService(tournamentRepo repository.TournamentRepository, storagePath string) *TournamentService {
-	return &TournamentService{tournamentRepo: tournamentRepo, storagePath: storagePath}
+func NewTournamentService(tournamentRepo repository.TournamentRepository, storagePath string, firebaseDb FirebaseClient) *TournamentService {
+	return &TournamentService{tournamentRepo: tournamentRepo, storagePath: storagePath, firebaseDb: firebaseDb}
+}
+
+func (s *TournamentService) SyncToFirebase(ctx context.Context) error {
+	if s.firebaseDb == nil {
+		return nil
+	}
+	tournament, err := s.tournamentRepo.GetActive(ctx)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// No active tournament, maybe clear it or leave it?
+			// For now, let's just return.
+			return nil
+		}
+		return err
+	}
+
+	ref := s.firebaseDb.NewRef("activeTournament")
+	return ref.Set(ctx, tournament.Slug)
 }
 
 func (s *TournamentService) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -153,6 +173,11 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Tournament created")
 	}
+	go func() {
+		if err := s.SyncToFirebase(context.Background()); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	log.Printf("Repository operation took %v", time.Since(checkpoint))
 }
 
@@ -260,6 +285,11 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		if err := s.SyncToFirebase(context.Background()); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Tournament updated")
 }
 
@@ -277,6 +307,11 @@ func (s *TournamentService) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		if err := s.SyncToFirebase(context.Background()); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Tournament deleted")
 }
 

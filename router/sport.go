@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Sport(pool *pgxpool.Pool) http.Handler {
+func Sport(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Handler {
 	r := chi.NewRouter()
 
 	sr := repository.NewSportRepository(pool)
 	tr := repository.NewTournamentRepository(pool)
-	ss := service.NewSportService(sr, tr, ".")
+	ss := service.NewSportService(sr, tr, ".", firebaseDb)
 
 	r.Get("/", ss.GetAll)
 	r.Get("/{id}", ss.GetByID)

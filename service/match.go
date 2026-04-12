@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"firebase.google.com/go/v4/db"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 )
@@ -21,43 +20,107 @@ import (
 type MatchService struct {
 	matchRepo      repository.MatchRepository
 	sportRepo      repository.SportRepository
+	teamRepo       repository.TeamRepository
 	tournamentRepo repository.TournamentRepository
 	firebaseDb     FirebaseClient
 }
 
-// Firebase Interfaces
-type FirebaseClient interface {
-	NewRef(path string) FirebaseRef
-}
-
-type FirebaseRef interface {
-	Set(ctx context.Context, v interface{}) error
-}
-
-// Real Implementation
-type RealFirebaseClient struct {
-	Client *db.Client
-}
-
-func (c *RealFirebaseClient) NewRef(path string) FirebaseRef {
-	return &RealFirebaseRef{Ref: c.Client.NewRef(path)}
-}
-
-type RealFirebaseRef struct {
-	Ref *db.Ref
-}
-
-func (r *RealFirebaseRef) Set(ctx context.Context, v interface{}) error {
-	return r.Ref.Set(ctx, v)
-}
-
-func NewMatchService(matchRepo repository.MatchRepository, sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository, firebaseDb FirebaseClient) *MatchService {
+func NewMatchService(matchRepo repository.MatchRepository, sportRepo repository.SportRepository, teamRepo repository.TeamRepository, tournamentRepo repository.TournamentRepository, firebaseDb FirebaseClient) *MatchService {
 	return &MatchService{
 		matchRepo:      matchRepo,
 		sportRepo:      sportRepo,
+		teamRepo:       teamRepo,
 		tournamentRepo: tournamentRepo,
 		firebaseDb:     firebaseDb,
 	}
+}
+
+func (s *MatchService) SyncToFirebase(ctx context.Context, sportID int) error {
+	if s.firebaseDb == nil {
+		return nil
+	}
+	sport, err := s.sportRepo.GetByID(ctx, sportID)
+	if err != nil {
+		return err
+	}
+
+	tournament, err := s.tournamentRepo.GetByID(ctx, sport.TournamentID)
+	if err != nil {
+		return err
+	}
+
+	matches, err := s.matchRepo.GetBySportID(ctx, sportID)
+	if err != nil {
+		return err
+	}
+
+	teams, err := s.teamRepo.GetAll(ctx)
+	if err != nil {
+		return err
+	}
+
+	teamMap := make(map[int]model.Team)
+	for _, team := range teams {
+		teamMap[team.ID] = team
+	}
+
+	firebaseMatches := make(map[string]FirebaseMatch)
+	for _, curr := range matches {
+		var homeName, awayName string
+		if curr.HomeID != nil {
+			if t, ok := teamMap[*curr.HomeID]; ok {
+				homeName = t.Name
+			}
+		}
+		if curr.AwayID != nil {
+			if t, ok := teamMap[*curr.AwayID]; ok {
+				awayName = t.Name
+			}
+		}
+
+		var homeScore, awayScore string
+		if curr.HomeScore != nil {
+			homeScore = *curr.HomeScore
+		}
+		if curr.AwayScore != nil {
+			awayScore = *curr.AwayScore
+		}
+
+		canEdit := curr.HomeID == nil || curr.AwayID == nil
+		fbMatch := FirebaseMatch{
+			Name:        curr.Round + " - Match ",
+			NextMatchId: "",
+			Participants: []*FirebaseParticipant{
+				nil,
+				{
+					Name:         homeName,
+					ResultText:   homeScore,
+					IsWinner:     curr.Winner != nil && homeName != "" && *curr.Winner == homeName,
+					CanEditTeams: canEdit,
+				},
+				{
+					Name:         awayName,
+					ResultText:   awayScore,
+					IsWinner:     curr.Winner != nil && awayName != "" && *curr.Winner == awayName,
+					CanEditTeams: canEdit,
+				},
+			},
+			StartTime:           curr.StartDate.Format("15:04"),
+			State:               string(curr.State),
+			TournamentRoundText: curr.Round,
+		}
+		if curr.Round == "Final" {
+			fbMatch.Name = "Final"
+		} else if curr.Round == "Perebutan juara 3" {
+			fbMatch.Name = "Perebutan juara 3"
+		}
+
+		firebaseMatches[strconv.Itoa(curr.RoundID)] = fbMatch
+	}
+
+	path := fmt.Sprintf("%s/sports/%s/matches", tournament.Slug, sport.Slug)
+	ref := s.firebaseDb.NewRef(path)
+	return ref.Set(ctx, firebaseMatches)
 }
 
 func (s *MatchService) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -116,6 +179,11 @@ func (s *MatchService) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		if err := s.SyncToFirebase(context.Background(), match.SportID); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Match created")
 }
 
@@ -138,6 +206,11 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		if err := s.SyncToFirebase(context.Background(), match.SportID); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Match updated")
 }
 
@@ -148,11 +221,26 @@ func (s *MatchService) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	match, err := s.matchRepo.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
+			return
+		}
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
 	if err := s.matchRepo.Delete(r.Context(), id); err != nil {
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
+	go func() {
+		if err := s.SyncToFirebase(context.Background(), match.SportID); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Match deleted")
 }
 
@@ -168,6 +256,11 @@ func (s *MatchService) DeleteBySportID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		if err := s.SyncToFirebase(context.Background(), sportID); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Matches deleted")
 }
 
@@ -389,11 +482,13 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save to Firebase
-	path := fmt.Sprintf("%s/sports/%s/matches", tournament.Slug, sport.Slug)
-	ref := s.firebaseDb.NewRef(path)
-	if err := ref.Set(r.Context(), firebaseMatches); err != nil {
-		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrMatchFirebaseError, "Error saving to Firebase: "+err.Error())
-		return
+	if s.firebaseDb != nil {
+		path := fmt.Sprintf("%s/sports/%s/matches", tournament.Slug, sport.Slug)
+		ref := s.firebaseDb.NewRef(path)
+		if err := ref.Set(r.Context(), firebaseMatches); err != nil {
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrMatchFirebaseError, "Error saving to Firebase: "+err.Error())
+			return
+		}
 	}
 
 	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Matches generated successfully")

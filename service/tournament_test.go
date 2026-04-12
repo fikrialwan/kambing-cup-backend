@@ -24,7 +24,7 @@ import (
 func TestTournamentService_Get(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockTournamentRepository)
-		svc := service.NewTournamentService(mockRepo, ".")
+		svc := service.NewTournamentService(mockRepo, ".", nil)
 
 		expectedTournament := model.Tournament{ID: 1, Name: "AGI 15", Slug: "agi-15"}
 		mockRepo.On("GetBySlug", mock.Anything, "agi-15").Return(expectedTournament, nil)
@@ -48,7 +48,7 @@ func TestTournamentService_Get(t *testing.T) {
 func TestTournamentService_Create(t *testing.T) {
 	t.Run("SuccessCreate", func(t *testing.T) {
 		mockRepo := new(MockTournamentRepository)
-		svc := service.NewTournamentService(mockRepo, ".")
+		svc := service.NewTournamentService(mockRepo, ".", nil)
 
 		defer os.RemoveAll("./storage")
 
@@ -82,7 +82,7 @@ func TestTournamentService_Create(t *testing.T) {
 
 	t.Run("SuccessRestore", func(t *testing.T) {
 		mockRepo := new(MockTournamentRepository)
-		svc := service.NewTournamentService(mockRepo, ".")
+		svc := service.NewTournamentService(mockRepo, ".", nil)
 
 		defer os.RemoveAll("./storage")
 
@@ -118,7 +118,7 @@ func TestTournamentService_Create(t *testing.T) {
 
 	t.Run("SlugTaken", func(t *testing.T) {
 		mockRepo := new(MockTournamentRepository)
-		svc := service.NewTournamentService(mockRepo, ".")
+		svc := service.NewTournamentService(mockRepo, ".", nil)
 
 		existing := model.Tournament{ID: 1, Name: "AGI 15", Slug: "agi-15", DeletedAt: nil}
 		mockRepo.On("GetBySlugWithDeleted", mock.Anything, "agi-15").Return(existing, nil)

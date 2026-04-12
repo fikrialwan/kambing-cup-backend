@@ -20,7 +20,10 @@ import (
 func TestTeamService_Create(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockTeamRepository)
-		svc := service.NewTeamService(mockRepo)
+		mockSportRepo := new(MockSportRepository)
+		mockMatchRepo := new(MockMatchRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewTeamService(mockRepo, mockSportRepo, mockMatchRepo, mockTournamentRepo, nil)
 
 		mockRepo.On("GetByNameAndSportWithDeleted", mock.Anything, "Team A", 1).Return(model.Team{}, pgx.ErrNoRows)
 		mockRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Team")).Return(nil)
@@ -47,7 +50,10 @@ func TestTeamService_Create(t *testing.T) {
 func TestTeamService_CreateBulk(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockTeamRepository)
-		svc := service.NewTeamService(mockRepo)
+		mockSportRepo := new(MockSportRepository)
+		mockMatchRepo := new(MockMatchRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewTeamService(mockRepo, mockSportRepo, mockMatchRepo, mockTournamentRepo, nil)
 
 		teams := []model.Team{
 			{Name: "Team A", SportID: 1},
@@ -71,7 +77,10 @@ func TestTeamService_CreateBulk(t *testing.T) {
 
 	t.Run("RequiredFields", func(t *testing.T) {
 		mockRepo := new(MockTeamRepository)
-		svc := service.NewTeamService(mockRepo)
+		mockSportRepo := new(MockSportRepository)
+		mockMatchRepo := new(MockMatchRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewTeamService(mockRepo, mockSportRepo, mockMatchRepo, mockTournamentRepo, nil)
 
 		teams := []model.Team{
 			{Name: "", SportID: 1},
@@ -91,7 +100,10 @@ func TestTeamService_CreateBulk(t *testing.T) {
 func TestTeamService_GetByID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockTeamRepository)
-		svc := service.NewTeamService(mockRepo)
+		mockSportRepo := new(MockSportRepository)
+		mockMatchRepo := new(MockMatchRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewTeamService(mockRepo, mockSportRepo, mockMatchRepo, mockTournamentRepo, nil)
 
 		expectedTeam := model.Team{ID: 1, Name: "Team A", SportID: 1}
 		mockRepo.On("GetByID", mock.Anything, 1).Return(expectedTeam, nil)

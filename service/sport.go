@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"kambing-cup-backend/helper"
@@ -21,10 +22,45 @@ type SportService struct {
 	sportRepo      repository.SportRepository
 	tournamentRepo repository.TournamentRepository
 	storagePath    string
+	firebaseDb     FirebaseClient
 }
 
-func NewSportService(sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository, storagePath string) *SportService {
-	return &SportService{sportRepo: sportRepo, tournamentRepo: tournamentRepo, storagePath: storagePath}
+func NewSportService(sportRepo repository.SportRepository, tournamentRepo repository.TournamentRepository, storagePath string, firebaseDb FirebaseClient) *SportService {
+	return &SportService{sportRepo: sportRepo, tournamentRepo: tournamentRepo, storagePath: storagePath, firebaseDb: firebaseDb}
+}
+
+func (s *SportService) SyncToFirebase(ctx context.Context, tournamentID int) error {
+	if s.firebaseDb == nil {
+		return nil
+	}
+	tournament, err := s.tournamentRepo.GetByID(ctx, tournamentID)
+	if err != nil {
+		return err
+	}
+
+	sports, err := s.sportRepo.GetAll(ctx, tournamentID)
+	if err != nil {
+		return err
+	}
+
+	type FirebaseSport struct {
+		Name     string `json:"name"`
+		Slug     string `json:"slug"`
+		ImageUrl string `json:"imageUrl"`
+	}
+
+	fbSports := make([]FirebaseSport, 0)
+	for _, sport := range sports {
+		fbSports = append(fbSports, FirebaseSport{
+			Name:     sport.Name,
+			Slug:     sport.Slug,
+			ImageUrl: sport.ImageUrl,
+		})
+	}
+
+	path := fmt.Sprintf("tournaments/%s/sports", tournament.Slug)
+	ref := s.firebaseDb.NewRef(path)
+	return ref.Set(ctx, fbSports)
 }
 
 func (s *SportService) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -180,6 +216,11 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Sport created")
 	}
+	go func() {
+		if err := s.SyncToFirebase(context.Background(), sport.TournamentID); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	log.Printf("Repository operation took %v", time.Since(checkpoint))
 }
 
@@ -264,6 +305,11 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		if err := s.SyncToFirebase(context.Background(), sport.TournamentID); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Sport updated")
 }
 
@@ -274,10 +320,25 @@ func (s *SportService) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sport, err := s.sportRepo.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
+			return
+		}
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
 	if err := s.sportRepo.Delete(r.Context(), id); err != nil {
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
+	go func() {
+		if err := s.SyncToFirebase(context.Background(), sport.TournamentID); err != nil {
+			fmt.Printf("Error syncing to Firebase: %v\n", err)
+		}
+	}()
 	helper.WriteResponse(w, http.StatusOK, true, nil, "", "Sport deleted")
 }

@@ -24,7 +24,7 @@ func TestSportService_Create(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".", nil)
 
 		defer os.RemoveAll("./storage")
 
@@ -63,7 +63,7 @@ func TestSportService_Create(t *testing.T) {
 	t.Run("TournamentNotFound", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".", nil)
 
 		// Mock Tournament GetByID to fail
 		mockTournamentRepo.On("GetByID", mock.Anything, 999).Return(model.Tournament{}, pgx.ErrNoRows)
@@ -94,7 +94,7 @@ func TestSportService_Create(t *testing.T) {
 	t.Run("ImageSizeTooLarge", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".", nil)
 
 		defer os.RemoveAll("./storage")
 
@@ -139,7 +139,7 @@ func TestSportService_Create(t *testing.T) {
 	t.Run("GetByID", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".", nil)
 
 		expectedSport := model.Sport{ID: 1, Name: "Futsal"}
 		mockSportRepo.On("GetByID", mock.Anything, 1).Return(expectedSport, nil)
@@ -165,7 +165,7 @@ func TestSportService_GetAll(t *testing.T) {
 	t.Run("SuccessWithoutFilter", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".", nil)
 
 		expectedSports := []model.Sport{{ID: 1, Name: "Futsal"}}
 		mockSportRepo.On("GetAll", mock.Anything, 0).Return(expectedSports, nil)
@@ -185,7 +185,7 @@ func TestSportService_GetAll(t *testing.T) {
 	t.Run("SuccessWithFilter", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".", nil)
 
 		expectedSports := []model.Sport{{ID: 1, TournamentID: 1, Name: "Futsal"}}
 		mockSportRepo.On("GetAll", mock.Anything, 1).Return(expectedSports, nil)
@@ -205,7 +205,7 @@ func TestSportService_GetAll(t *testing.T) {
 	t.Run("InvalidFilter", func(t *testing.T) {
 		mockSportRepo := new(MockSportRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".")
+		svc := service.NewSportService(mockSportRepo, mockTournamentRepo, ".", nil)
 
 		req := httptest.NewRequest("GET", "/sport?tournamentId=abc", nil)
 		w := httptest.NewRecorder()

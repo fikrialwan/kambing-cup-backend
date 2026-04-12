@@ -6,20 +6,19 @@ import (
 	"kambing-cup-backend/service"
 	"net/http"
 
-	"firebase.google.com/go/v4/db"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Match(pool *pgxpool.Pool, firebaseClient *db.Client) http.Handler {
+func Match(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Handler {
 	r := chi.NewRouter()
 
 	mr := repository.NewMatchRepository(pool)
 	sr := repository.NewSportRepository(pool)
 	tr := repository.NewTournamentRepository(pool)
-	
-	fbWrapper := &service.RealFirebaseClient{Client: firebaseClient}
-	ms := service.NewMatchService(mr, sr, tr, fbWrapper)
+	ter := repository.NewTeamRepository(pool)
+
+	ms := service.NewMatchService(mr, sr, ter, tr, firebaseDb)
 
 	r.Get("/", ms.GetAll)
 	r.Get("/{id}", ms.GetByID)

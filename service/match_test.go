@@ -19,7 +19,7 @@ import (
 func TestMatchService_GetAll(t *testing.T) {
 	t.Run("Success without sportId", func(t *testing.T) {
 		mockMatchRepo := new(MockMatchRepository)
-		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil, nil)
 
 		expectedMatches := []model.Match{{ID: 1}, {ID: 2}}
 		mockMatchRepo.On("GetAll", mock.Anything).Return(expectedMatches, nil)
@@ -38,7 +38,7 @@ func TestMatchService_GetAll(t *testing.T) {
 
 	t.Run("Success with sportId", func(t *testing.T) {
 		mockMatchRepo := new(MockMatchRepository)
-		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil, nil)
 
 		expectedMatches := []model.Match{{ID: 1, SportID: 1}}
 		mockMatchRepo.On("GetBySportID", mock.Anything, 1).Return(expectedMatches, nil)
@@ -57,7 +57,7 @@ func TestMatchService_GetAll(t *testing.T) {
 
 	t.Run("Invalid sportId", func(t *testing.T) {
 		mockMatchRepo := new(MockMatchRepository)
-		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil, nil)
 
 		req := httptest.NewRequest("GET", "/match?sportId=invalid", nil)
 		w := httptest.NewRecorder()
@@ -76,10 +76,9 @@ func TestMatchService_Create(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockMatchRepo := new(MockMatchRepository)
 		mockSportRepo := new(MockSportRepository)
+		mockTeamRepo := new(MockTeamRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		mockFirebase := new(MockFirebaseClient)
-
-		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTournamentRepo, mockFirebase)
+		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTeamRepo, mockTournamentRepo, nil)
 
 		mockMatchRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Match")).Return(nil)
 
@@ -107,10 +106,9 @@ func TestMatchService_GetByID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockMatchRepo := new(MockMatchRepository)
 		mockSportRepo := new(MockSportRepository)
+		mockTeamRepo := new(MockTeamRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
-		mockFirebase := new(MockFirebaseClient)
-
-		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTournamentRepo, mockFirebase)
+		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTeamRepo, mockTournamentRepo, nil)
 
 		expectedMatch := model.Match{ID: 1, SportID: 1}
 		mockMatchRepo.On("GetByID", mock.Anything, 1).Return(expectedMatch, nil)
@@ -135,11 +133,12 @@ func TestMatchService_Generate(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockMatchRepo := new(MockMatchRepository)
 		mockSportRepo := new(MockSportRepository)
+		mockTeamRepo := new(MockTeamRepository)
 		mockTournamentRepo := new(MockTournamentRepository)
 		mockFirebase := new(MockFirebaseClient)
 		mockFirebaseRef := new(MockFirebaseRef)
 
-		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTournamentRepo, mockFirebase)
+		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTeamRepo, mockTournamentRepo, mockFirebase)
 
 		// Setup mocks
 		mockSportRepo.On("GetByID", mock.Anything, 1).Return(model.Sport{ID: 1, TournamentID: 1, Slug: "futsal"}, nil)
