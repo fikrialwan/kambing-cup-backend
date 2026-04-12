@@ -91,6 +91,33 @@ func (s *TeamService) Create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *TeamService) CreateBulk(w http.ResponseWriter, r *http.Request) {
+	var teams []model.Team
+	if err := json.NewDecoder(r.Body).Decode(&teams); err != nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
+		return
+	}
+
+	if len(teams) == 0 {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Teams are required")
+		return
+	}
+
+	for _, team := range teams {
+		if team.Name == "" || team.SportID == 0 {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTeamRequiredFields, "Name and Sport ID are required for all teams")
+			return
+		}
+	}
+
+	if err := s.teamRepo.CreateBulk(r.Context(), teams); err != nil {
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
+	helper.WriteResponse(w, http.StatusCreated, true, nil, "", "Teams created")
+}
+
 func (s *TeamService) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {

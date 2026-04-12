@@ -7,6 +7,7 @@ import (
 
 	"kambing-cup-backend/model"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,6 +19,7 @@ type TeamRepository interface {
 	Delete(ctx context.Context, id int) error
 	GetByNameAndSportWithDeleted(ctx context.Context, name string, sportID int) (model.Team, error)
 	Restore(ctx context.Context, team model.Team) error
+	CreateBulk(ctx context.Context, teams []model.Team) error
 }
 
 type teamRepository struct {
@@ -30,6 +32,22 @@ func NewTeamRepository(pool *pgxpool.Pool) TeamRepository {
 
 func (r *teamRepository) Create(ctx context.Context, team model.Team) error {
 	_, err := r.pool.Exec(ctx, "INSERT INTO teams (sport_id, name, company_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)", team.SportID, team.Name, team.CompanyName, time.Now(), time.Now())
+	return err
+}
+
+func (r *teamRepository) CreateBulk(ctx context.Context, teams []model.Team) error {
+	now := time.Now()
+	rows := [][]interface{}{}
+	for _, team := range teams {
+		rows = append(rows, []interface{}{team.SportID, team.Name, team.CompanyName, now, now})
+	}
+
+	_, err := r.pool.CopyFrom(
+		ctx,
+		pgx.Identifier{"teams"},
+		[]string{"sport_id", "name", "company_name", "created_at", "updated_at"},
+		pgx.CopyFromRows(rows),
+	)
 	return err
 }
 

@@ -24,6 +24,7 @@ func Team(pool *pgxpool.Pool) http.Handler {
 		r.Use(middleware.AdminAuth)
 
 		r.Post("/", ts.Create)
+		r.Post("/bulk", ts.CreateBulk)
 		r.Put("/{id}", ts.Update)
 		r.Delete("/{id}", ts.Delete)
 	})

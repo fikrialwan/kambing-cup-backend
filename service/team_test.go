@@ -44,6 +44,50 @@ func TestTeamService_Create(t *testing.T) {
 	})
 }
 
+func TestTeamService_CreateBulk(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mockRepo := new(MockTeamRepository)
+		svc := service.NewTeamService(mockRepo)
+
+		teams := []model.Team{
+			{Name: "Team A", SportID: 1},
+			{Name: "Team B", SportID: 1},
+		}
+		mockRepo.On("CreateBulk", mock.Anything, teams).Return(nil)
+
+		body, _ := json.Marshal(teams)
+		req := httptest.NewRequest("POST", "/team/bulk", bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+
+		svc.CreateBulk(w, req)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "Teams created", resp.Message)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("RequiredFields", func(t *testing.T) {
+		mockRepo := new(MockTeamRepository)
+		svc := service.NewTeamService(mockRepo)
+
+		teams := []model.Team{
+			{Name: "", SportID: 1},
+		}
+
+		body, _ := json.Marshal(teams)
+		req := httptest.NewRequest("POST", "/team/bulk", bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+
+		svc.CreateBulk(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		mockRepo.AssertExpectations(t)
+	})
+}
+
 func TestTeamService_GetByID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockRepo := new(MockTeamRepository)

@@ -58,6 +58,11 @@ func (m *MockTournamentRepository) GetAll(ctx context.Context) ([]model.Tourname
 	return args.Get(0).([]model.Tournament), args.Error(1)
 }
 
+func (m *MockTournamentRepository) GetActive(ctx context.Context) (model.Tournament, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(model.Tournament), args.Error(1)
+}
+
 func (m *MockTournamentRepository) Create(ctx context.Context, tournament model.Tournament) error {
 	args := m.Called(ctx, tournament)
 	return args.Error(0)
@@ -65,6 +70,11 @@ func (m *MockTournamentRepository) Create(ctx context.Context, tournament model.
 
 func (m *MockTournamentRepository) Update(ctx context.Context, tournament model.Tournament) error {
 	args := m.Called(ctx, tournament)
+	return args.Error(0)
+}
+
+func (m *MockTournamentRepository) DeactivateAllExcept(ctx context.Context, id int) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
@@ -168,6 +178,11 @@ func (m *MockTeamRepository) Create(ctx context.Context, team model.Team) error 
 	return args.Error(0)
 }
 
+func (m *MockTeamRepository) CreateBulk(ctx context.Context, teams []model.Team) error {
+	args := m.Called(ctx, teams)
+	return args.Error(0)
+}
+
 func (m *MockTeamRepository) GetAll(ctx context.Context) ([]model.Team, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]model.Team), args.Error(1)
@@ -230,6 +245,11 @@ func (m *MockMatchRepository) Update(ctx context.Context, match model.Match) err
 
 func (m *MockMatchRepository) Delete(ctx context.Context, id int) error {
 	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockMatchRepository) DeleteBySportID(ctx context.Context, sportID int) error {
+	args := m.Called(ctx, sportID)
 	return args.Error(0)
 }
 
