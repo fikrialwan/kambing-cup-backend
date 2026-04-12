@@ -10,7 +10,9 @@ import (
 	"kambing-cup-backend/repository"
 	"math"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -109,9 +111,10 @@ func (s *MatchService) SyncToFirebase(ctx context.Context, sportID int) error {
 			State:               string(curr.State),
 			TournamentRoundText: curr.Round,
 		}
-		if curr.Round == "Final" {
+		switch curr.Round {
+		case "Final":
 			fbMatch.Name = "Final"
-		} else if curr.Round == "Perebutan juara 3" {
+		case "Perebutan juara 3":
 			fbMatch.Name = "Perebutan juara 3"
 		}
 
@@ -188,26 +191,144 @@ func (s *MatchService) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
+	const maxRequestSize = 3 * 1024 * 1024
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	if err := r.ParseMultipartForm(maxRequestSize); err != nil {
+		if strings.Contains(err.Error(), "request body too large") {
+			helper.WriteResponse(w, http.StatusRequestEntityTooLarge, false, nil, helper.ErrEntityTooLarge, "Request body too large (max 3MB)")
+			return
+		}
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Error parsing form")
+		return
+	}
+
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid ID")
 		return
 	}
 
-	var match model.Match
-	if err := json.NewDecoder(r.Body).Decode(&match); err != nil {
-		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, err.Error())
-		return
-	}
-	match.ID = id
-
-	if err := s.matchRepo.Update(r.Context(), match); err != nil {
+	existingMatch, err := s.matchRepo.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			helper.WriteResponse(w, http.StatusNotFound, false, nil, helper.ErrNotFound, http.StatusText(http.StatusNotFound))
+			return
+		}
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
 
+	// State transition logic
+	if existingMatch.State == model.DONE {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchInvalidStateTransition, "Cannot update match that is already DONE")
+		return
+	}
+
+	newState := model.MatchState(r.FormValue("state"))
+
+	if existingMatch.State == model.SOON {
+		if newState != model.LIVE {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchInvalidStateTransition, "Can only update status from SOON to LIVE")
+			return
+		}
+
+		file, handler, err := r.FormFile("image")
+		if err != nil {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchImageRequired, "Image is required when starting match")
+			return
+		}
+
+		if !helper.IsImage(handler) {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
+			return
+		}
+
+		if !helper.ValidateImageSize(handler, 2*1024*1024) {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Image size must be less than 2MB")
+			return
+		}
+
+		fileName := fmt.Sprintf("match-%d-%d%s", existingMatch.ID, time.Now().UnixNano(), filepath.Ext(handler.Filename))
+		matchDir := filepath.Join(".", "storage", "match")
+		helper.CheckDirectory(matchDir)
+
+		if err := helper.UploadFile(&file, matchDir, fileName); err != nil {
+			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+			return
+		}
+
+		imageUrl := fmt.Sprintf("/storage/match/%s", fileName)
+		existingMatch.ImageUrl = &imageUrl
+		existingMatch.State = model.LIVE
+	} else if existingMatch.State == model.LIVE {
+		if newState != model.DONE {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchInvalidStateTransition, "Can only update status from LIVE to DONE")
+			return
+		}
+		winner := r.FormValue("winner")
+		if winner == "" {
+			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchWinnerRequired, "Winner is required when finishing match")
+			return
+		}
+		existingMatch.Winner = &winner
+		existingMatch.State = model.DONE
+		
+		homeScore := r.FormValue("home_score")
+		awayScore := r.FormValue("away_score")
+		if homeScore != "" {
+			existingMatch.HomeScore = &homeScore
+		}
+		if awayScore != "" {
+			existingMatch.AwayScore = &awayScore
+		}
+	}
+
+	// Update the match
+	if err := s.matchRepo.Update(r.Context(), existingMatch); err != nil {
+		if existingMatch.State == model.LIVE && existingMatch.ImageUrl != nil {
+			// If we just uploaded a new image, delete it on failure
+			helper.DeleteFile(filepath.Join(".", *existingMatch.ImageUrl))
+		}
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
+	// Logic to update next round based on winner
+	if existingMatch.State == model.DONE && existingMatch.NextRoundID != nil {
+		nextMatch, err := s.matchRepo.GetByID(r.Context(), *existingMatch.NextRoundID)
+		if err == nil {
+			// Find winner's ID
+			var winnerID *int
+			if existingMatch.HomeID != nil {
+				team, err := s.teamRepo.GetByID(r.Context(), *existingMatch.HomeID)
+				if err == nil && team.Name == *existingMatch.Winner {
+					winnerID = existingMatch.HomeID
+				}
+			}
+			if winnerID == nil && existingMatch.AwayID != nil {
+				team, err := s.teamRepo.GetByID(r.Context(), *existingMatch.AwayID)
+				if err == nil && team.Name == *existingMatch.Winner {
+					winnerID = existingMatch.AwayID
+				}
+			}
+
+			if winnerID != nil {
+				if existingMatch.RoundID%10 == 1 {
+					nextMatch.HomeID = winnerID
+				} else {
+					nextMatch.AwayID = winnerID
+				}
+				s.matchRepo.Update(r.Context(), nextMatch)
+				go func() {
+					s.SyncToFirebase(context.Background(), nextMatch.SportID)
+				}()
+			}
+		}
+	}
+
 	go func() {
-		if err := s.SyncToFirebase(context.Background(), match.SportID); err != nil {
+		if err := s.SyncToFirebase(context.Background(), existingMatch.SportID); err != nil {
 			fmt.Printf("Error syncing to Firebase: %v\n", err)
 		}
 	}()
@@ -403,17 +524,17 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 		if len(curr.ID) > 1 {
 			nextMatchId = curr.ID[:len(curr.ID)-1]
 		}
-		
+
 		nextLooserMatchId := ""
 		if curr.Depth == 1 { // Semifinals
 			nextLooserMatchId = "2"
 		}
 
 		// Determine participants state (canEditTeams)
-		// Only the deepest level (leaf nodes) should be editable initially? 
+		// Only the deepest level (leaf nodes) should be editable initially?
 		// Or creating empty slots.
 		isLeaf := curr.Depth == rounds-1
-		
+
 		canEdit := false
 		if isLeaf {
 			canEdit = true
@@ -431,7 +552,7 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 		// "112" -> suffix "12" -> 01 -> 1 -> +1 = 2
 		// "121" -> suffix "21" -> 10 -> 2 -> +1 = 3
 		// "122" -> suffix "22" -> 11 -> 3 -> +1 = 4
-		
+
 		matchNum := 1
 		if len(curr.ID) > 1 {
 			suffix := curr.ID[1:]
@@ -444,7 +565,7 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 			}
 			matchNum = val + 1
 		}
-		
+
 		matchName := fmt.Sprintf("%s - Match %d", roundName, matchNum)
 		if curr.Depth == 0 {
 			matchName = "Final"

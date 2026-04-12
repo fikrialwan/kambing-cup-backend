@@ -20,9 +20,12 @@ const (
 	ErrSportTournamentNotFound = "203"
 
 	// Match Errors (3xx)
-	ErrMatchSportNotFound      = "301"
-	ErrMatchTournamentNotFound = "302"
-	ErrMatchFirebaseError      = "303"
+	ErrMatchSportNotFound           = "301"
+	ErrMatchTournamentNotFound      = "302"
+	ErrMatchFirebaseError           = "303"
+	ErrMatchInvalidStateTransition  = "304"
+	ErrMatchImageRequired           = "305"
+	ErrMatchWinnerRequired          = "306"
 
 	// Team Errors (4xx)
 	ErrTeamNameTaken       = "401"

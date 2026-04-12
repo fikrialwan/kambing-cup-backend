@@ -7,8 +7,11 @@ import (
 	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/service"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
+	"os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -171,5 +174,118 @@ func TestMatchService_Generate(t *testing.T) {
 		mockTournamentRepo.AssertExpectations(t)
 		mockFirebase.AssertExpectations(t)
 		mockFirebaseRef.AssertExpectations(t)
+	})
+}
+
+func TestMatchService_Update(t *testing.T) {
+	t.Run("Success SOON to LIVE", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		mockSportRepo := new(MockSportRepository)
+		mockTeamRepo := new(MockTeamRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTeamRepo, mockTournamentRepo, nil)
+
+		defer os.RemoveAll("./storage")
+
+		id := 1
+		existingMatch := model.Match{ID: id, State: model.SOON, SportID: 1}
+		mockMatchRepo.On("GetByID", mock.Anything, id).Return(existingMatch, nil)
+		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
+			return m.State == model.LIVE && m.ImageUrl != nil
+		})).Return(nil)
+
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		writer.WriteField("state", "LIVE")
+		
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Disposition", `form-data; name="image"; filename="test.png"`)
+		header.Set("Content-Type", "image/png")
+		part, _ := writer.CreatePart(header)
+		part.Write([]byte("fake-image-data"))
+		writer.Close()
+
+		req := httptest.NewRequest("PUT", "/match/1", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+
+		svc.Update(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockMatchRepo.AssertExpectations(t)
+	})
+
+	t.Run("Fail SOON to LIVE without Image", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil, nil)
+
+		id := 1
+		existingMatch := model.Match{ID: id, State: model.SOON}
+		mockMatchRepo.On("GetByID", mock.Anything, id).Return(existingMatch, nil)
+
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		writer.WriteField("state", "LIVE")
+		writer.Close()
+
+		req := httptest.NewRequest("PUT", "/match/1", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+
+		svc.Update(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.Equal(t, "305", resp.ErrorCode)
+	})
+
+	t.Run("Success LIVE to DONE", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		mockSportRepo := new(MockSportRepository)
+		mockTeamRepo := new(MockTeamRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTeamRepo, mockTournamentRepo, nil)
+
+		id := 1
+		winner := "Team A"
+		existingMatch := model.Match{ID: id, State: model.LIVE, SportID: 1, HomeID: helper.IntPtr(10), RoundID: 11, NextRoundID: helper.IntPtr(2)}
+		mockMatchRepo.On("GetByID", mock.Anything, id).Return(existingMatch, nil)
+		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
+			return m.State == model.DONE && *m.Winner == winner
+		})).Return(nil)
+
+		// Next round update mocks
+		mockTeamRepo.On("GetByID", mock.Anything, 10).Return(model.Team{ID: 10, Name: "Team A"}, nil)
+		nextMatch := model.Match{ID: 2, SportID: 1}
+		mockMatchRepo.On("GetByID", mock.Anything, 2).Return(nextMatch, nil)
+		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
+			return m.ID == 2 && m.HomeID != nil && *m.HomeID == 10
+		})).Return(nil)
+
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		writer.WriteField("state", "DONE")
+		writer.WriteField("winner", winner)
+		writer.Close()
+
+		req := httptest.NewRequest("PUT", "/match/1", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+
+		svc.Update(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockMatchRepo.AssertExpectations(t)
+		mockTeamRepo.AssertExpectations(t)
 	})
 }

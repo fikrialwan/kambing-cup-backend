@@ -19,7 +19,6 @@ func Match(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Handler {
 	ter := repository.NewTeamRepository(pool)
 
 	ms := service.NewMatchService(mr, sr, ter, tr, firebaseDb)
-
 	r.Get("/", ms.GetAll)
 	r.Get("/{id}", ms.GetByID)
 

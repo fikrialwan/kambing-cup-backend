@@ -22,3 +22,12 @@ func WriteResponse(w http.ResponseWriter, statusCode int, success bool, data int
 		Message:   message,
 	})
 }
+
+func IntPtr(i int) *int {
+	return &i
+}
+
+func StringPtr(s string) *string {
+	return &s
+}
+

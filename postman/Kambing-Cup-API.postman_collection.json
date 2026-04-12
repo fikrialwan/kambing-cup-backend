@@ -506,7 +506,7 @@
 					"response": []
 				},
 				{
-					"name": "update",
+					"name": "updateToLive",
 					"request": {
 						"method": "PUT",
 						"header": [
@@ -517,13 +517,68 @@
 							}
 						],
 						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"sport_id\": 1,\n    \"home_id\": null,\n    \"away_id\": null,\n    \"round_id\": 1,\n    \"round\": \"Final\",\n    \"state\": \"DONE\",\n    \"start_date\": \"2024-01-01T00:00:00Z\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "state",
+									"value": "LIVE",
+									"type": "text"
+								},
+								{
+									"key": "image",
+									"type": "file",
+									"src": []
 								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/match/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"match",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "updateToDone",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{token}}",
+								"type": "text"
 							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "state",
+									"value": "DONE",
+									"type": "text"
+								},
+								{
+									"key": "winner",
+									"value": "Team A",
+									"type": "text"
+								},
+								{
+									"key": "home_score",
+									"value": "2",
+									"type": "text"
+								},
+								{
+									"key": "away_score",
+									"value": "1",
+									"type": "text"
+								}
+							]
 						},
 						"url": {
 							"raw": "{{base_url}}/match/1",
