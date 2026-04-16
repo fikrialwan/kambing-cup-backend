@@ -90,6 +90,7 @@ func (s *MatchService) SyncToFirebase(ctx context.Context, sportID int) error {
 
 		canEdit := curr.HomeID == nil || curr.AwayID == nil
 		fbMatch := FirebaseMatch{
+			MatchId:     curr.ID,
 			Name:        curr.Round + " - Match ",
 			NextMatchId: "",
 			Participants: []*FirebaseParticipant{
@@ -406,6 +407,7 @@ type FirebaseParticipant struct {
 }
 
 type FirebaseMatch struct {
+	MatchId             int                    `json:"matchId,omitempty"`
 	Name                string                 `json:"name"`
 	NextMatchId         string                 `json:"nextMatchId"`
 	NextLooserMatchId   string                 `json:"nextLooserMatchId,omitempty"`
@@ -463,7 +465,7 @@ func (s *MatchService) GetTeamHistoryImages(w http.ResponseWriter, r *http.Reque
 		// Must involve the team
 		if (m.HomeID != nil && *m.HomeID == teamID) || (m.AwayID != nil && *m.AwayID == teamID) {
 			mRoundIDStr := strconv.Itoa(m.RoundID)
-			
+
 			// History matches are earlier rounds, so they have LONGER RoundID strings
 			// AND they must lead to the current round (currentRoundID is a prefix of mRoundID)
 			// Example: current 11 (semifinal), history 111 (quarterfinal)
@@ -672,6 +674,25 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 			// Ideally matchRepo should support BulkCreate or Transaction.
 			// For now, log.
 			fmt.Println("Error creating match in Postgres:", err)
+		}
+	}
+
+	// Query created matches to get their IDs and update Firebase data
+	createdMatches, err := s.matchRepo.GetBySportID(r.Context(), req.SportID)
+	if err == nil {
+		// Build map of RoundID to Match ID
+		roundIDToMatchID := make(map[int]int)
+		for _, m := range createdMatches {
+			roundIDToMatchID[m.RoundID] = m.ID
+		}
+
+		// Update Firebase matches with IDs
+		for roundIDStr, fbMatch := range firebaseMatches {
+			roundID, _ := strconv.Atoi(roundIDStr)
+			if matchID, ok := roundIDToMatchID[roundID]; ok {
+				fbMatch.MatchId = matchID
+				firebaseMatches[roundIDStr] = fbMatch
+			}
 		}
 	}
 
