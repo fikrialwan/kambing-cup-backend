@@ -247,6 +247,15 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 				existingMatch.AwayID = &awayID
 			}
 		}
+		// Update start_time if provided
+		if r.FormValue("start_time") != "" {
+			startTime, err := time.Parse(time.RFC3339, r.FormValue("start_time"))
+			if err != nil {
+				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid start_time format (use RFC3339, e.g., 2024-04-16T15:30:00Z)")
+				return
+			}
+			existingMatch.StartDate = startTime
+		}
 
 		if newState == model.LIVE {
 			file, handler, err := r.FormFile("image")
