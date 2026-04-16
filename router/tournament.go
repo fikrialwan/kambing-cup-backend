@@ -17,7 +17,7 @@ func Tournament(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Hand
 	ts := service.NewTournamentService(tr, ".", firebaseDb)
 
 	r.Use(middleware.Auth)
-	r.Use(middleware.AdminAuth)
+	r.Use(middleware.SuperAdminAuth)
 
 	r.Get("/", ts.GetAll)
 	r.Get("/tournament/active", ts.GetActive)

@@ -58,7 +58,7 @@ func TestAuth(t *testing.T) {
 	})
 }
 
-func TestAdminAuth(t *testing.T) {
+func TestSuperAdminAuth(t *testing.T) {
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -68,7 +68,7 @@ func TestAdminAuth(t *testing.T) {
 		req.Header.Set("x-user-role", "SUPERADMIN")
 		w := httptest.NewRecorder()
 
-		middleware.AdminAuth(nextHandler).ServeHTTP(w, req)
+		middleware.SuperAdminAuth(nextHandler).ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
@@ -78,7 +78,7 @@ func TestAdminAuth(t *testing.T) {
 		req.Header.Set("x-user-role", "USER")
 		w := httptest.NewRecorder()
 
-		middleware.AdminAuth(nextHandler).ServeHTTP(w, req)
+		middleware.SuperAdminAuth(nextHandler).ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})

@@ -23,15 +23,23 @@ func Match(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Handler {
 	r.Get("/{id}", ms.GetByID)
 	r.Get("/{matchId}/history/{teamId}", ms.GetTeamHistoryImages)
 
+	// SuperAdmin only routes
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Auth)
-		r.Use(middleware.AdminAuth)
+		r.Use(middleware.SuperAdminAuth)
 
 		r.Post("/", ms.Create)
 		r.Post("/generate", ms.Generate)
-		r.Put("/{id}", ms.Update)
 		r.Delete("/{id}", ms.Delete)
 		r.Delete("/sport/{sportId}", ms.DeleteBySportID)
+	})
+
+	// Admin or SuperAdmin routes
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Auth)
+		r.Use(middleware.AdminOrSuperAdminAuth)
+
+		r.Put("/{id}", ms.Update)
 	})
 
 	return r

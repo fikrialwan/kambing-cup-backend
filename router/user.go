@@ -16,7 +16,7 @@ func intMiddleware(next http.Handler) http.Handler {
 		if r.Method == "GET" && r.URL.Path == "/user" {
 			next.ServeHTTP(w, r)
 		} else {
-			middleware.AdminAuth(next).ServeHTTP(w, r)
+			middleware.SuperAdminAuth(next).ServeHTTP(w, r)
 		}
 	})
 

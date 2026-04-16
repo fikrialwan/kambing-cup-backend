@@ -24,7 +24,7 @@ func Team(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Handler {
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Auth)
-		r.Use(middleware.AdminAuth)
+		r.Use(middleware.SuperAdminAuth)
 
 		r.Post("/", ts.Create)
 		r.Post("/bulk", ts.CreateBulk)

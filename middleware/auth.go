@@ -58,10 +58,34 @@ func Auth(next http.Handler) http.Handler {
 	})
 }
 
-func AdminAuth(next http.Handler) http.Handler {
+func SuperAdminAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		role := r.Header.Get("x-user-role")
 		if role != "SUPERADMIN" {
+			helper.WriteResponse(w, http.StatusUnauthorized, false, nil, helper.ErrUnauthorized, http.StatusText(http.StatusUnauthorized))
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func AdminAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		role := r.Header.Get("x-user-role")
+		if role != "ADMIN" {
+			helper.WriteResponse(w, http.StatusUnauthorized, false, nil, helper.ErrUnauthorized, http.StatusText(http.StatusUnauthorized))
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func AdminOrSuperAdminAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		role := r.Header.Get("x-user-role")
+		if role != "ADMIN" && role != "SUPERADMIN" {
 			helper.WriteResponse(w, http.StatusUnauthorized, false, nil, helper.ErrUnauthorized, http.StatusText(http.StatusUnauthorized))
 			return
 		}
