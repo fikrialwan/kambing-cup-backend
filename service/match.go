@@ -580,23 +580,13 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 
 		// Prepare Postgres Match
 		roundID, _ := strconv.Atoi(curr.ID)
-		nextRoundIDVal := 0
-		if len(curr.ID) > 1 {
-			parentID := curr.ID[:len(curr.ID)-1]
-			nextRoundIDVal, _ = strconv.Atoi(parentID)
-		}
-		nextRoundID := &nextRoundIDVal
-		if len(curr.ID) == 1 {
-			nextRoundID = nil
-		}
-
 		roundName := getRoundName(curr.Depth)
 
 		// Create match struct
 		m := model.Match{
 			SportID:     req.SportID,
 			RoundID:     roundID,
-			NextRoundID: nextRoundID,
+			NextRoundID: nil, // Will be set after getting DB IDs
 			Round:       roundName,
 			State:       model.SOON,
 			StartDate:   time.Now(),
@@ -695,11 +685,31 @@ func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 			roundIDToMatchID[m.RoundID] = m.ID
 		}
 
-		// Update Firebase matches with IDs
+		// Update NextRoundID for each match with correct Match IDs
+		for _, m := range createdMatches {
+			if m.RoundID > 1 { // Not the final match (RoundID 1)
+				parentRoundID := m.RoundID / 10
+				if parentMatchID, ok := roundIDToMatchID[parentRoundID]; ok {
+					m.NextRoundID = &parentMatchID
+					s.matchRepo.Update(r.Context(), m)
+				}
+			}
+		}
+
+		// Update Firebase matches with IDs and NextMatchIds
 		for roundIDStr, fbMatch := range firebaseMatches {
 			roundID, _ := strconv.Atoi(roundIDStr)
 			if matchID, ok := roundIDToMatchID[roundID]; ok {
 				fbMatch.MatchId = matchID
+
+				// Update NextMatchId to actual Match ID
+				if fbMatch.NextMatchId != "" {
+					nextRoundID, _ := strconv.Atoi(fbMatch.NextMatchId)
+					if nextMatchID, ok := roundIDToMatchID[nextRoundID]; ok {
+						fbMatch.NextMatchId = strconv.Itoa(nextMatchID)
+					}
+				}
+
 				firebaseMatches[roundIDStr] = fbMatch
 			}
 		}
