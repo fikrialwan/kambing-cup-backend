@@ -505,17 +505,27 @@ func (s *MatchService) GetTeamHistoryImages(w http.ResponseWriter, r *http.Reque
 
 		// Must involve the team
 		if (m.HomeID != nil && *m.HomeID == teamID) || (m.AwayID != nil && *m.AwayID == teamID) {
-			mRoundIDStr := strconv.Itoa(m.RoundID)
-
-			// History matches are earlier rounds, so they have LONGER RoundID strings
-			// AND they must lead to the current round (currentRoundID is a prefix of mRoundID)
-			// Example: current 11 (semifinal), history 111 (quarterfinal)
-			if len(mRoundIDStr) > len(currentRoundIDStr) && strings.HasPrefix(mRoundIDStr, currentRoundIDStr) {
-				history = append(history, HistoryImage{
-					MatchID:  m.ID,
-					Round:    m.Round,
-					ImageUrl: *m.ImageUrl,
-				})
+			// Special handling for 3rd place match (RoundID = 2)
+			if currentMatch.RoundID == 2 {
+				// Include all other matches involving the team
+				if m.RoundID != 2 {
+					history = append(history, HistoryImage{
+						MatchID:  m.ID,
+						Round:    m.Round,
+						ImageUrl: *m.ImageUrl,
+					})
+				}
+			} else {
+				// Standard bracket logic: history has longer RoundID and current is prefix
+				// Example: current 11 (semifinal), history 111 (quarterfinal)
+				mRoundIDStr := strconv.Itoa(m.RoundID)
+				if len(mRoundIDStr) > len(currentRoundIDStr) && strings.HasPrefix(mRoundIDStr, currentRoundIDStr) {
+					history = append(history, HistoryImage{
+						MatchID:  m.ID,
+						Round:    m.Round,
+						ImageUrl: *m.ImageUrl,
+					})
+				}
 			}
 		}
 	}
