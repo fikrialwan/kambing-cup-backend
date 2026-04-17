@@ -533,6 +533,48 @@ func (s *MatchService) GetTeamHistoryImages(w http.ResponseWriter, r *http.Reque
 	helper.WriteResponse(w, http.StatusOK, true, history, "", "Team history images retrieved")
 }
 
+func (s *MatchService) GetTeamHistoryImagesByTeam(w http.ResponseWriter, r *http.Request) {
+	sportID, err := strconv.Atoi(chi.URLParam(r, "sportId"))
+	if err != nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid sportId")
+		return
+	}
+
+	teamID, err := strconv.Atoi(chi.URLParam(r, "teamId"))
+	if err != nil {
+		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid teamId")
+		return
+	}
+
+	matches, err := s.matchRepo.GetBySportID(r.Context(), sportID)
+	if err != nil {
+		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+		return
+	}
+
+	type HistoryImage struct {
+		MatchID  int    `json:"match_id"`
+		Round    string `json:"round"`
+		ImageUrl string `json:"image_url"`
+	}
+
+	var history []HistoryImage
+	for _, m := range matches {
+		if m.ImageUrl == nil || *m.ImageUrl == "" {
+			continue
+		}
+		if (m.HomeID != nil && *m.HomeID == teamID) || (m.AwayID != nil && *m.AwayID == teamID) {
+			history = append(history, HistoryImage{
+				MatchID:  m.ID,
+				Round:    m.Round,
+				ImageUrl: *m.ImageUrl,
+			})
+		}
+	}
+
+	helper.WriteResponse(w, http.StatusOK, true, history, "", "Team history images retrieved")
+}
+
 func (s *MatchService) Generate(w http.ResponseWriter, r *http.Request) {
 	var req GenerateMatchesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -22,6 +22,7 @@ func Match(pool *pgxpool.Pool, firebaseDb service.FirebaseClient) http.Handler {
 	r.Get("/", ms.GetAll)
 	r.Get("/{id}", ms.GetByID)
 	r.Get("/{matchId}/history/{teamId}", ms.GetTeamHistoryImages)
+	r.Get("/sport/{sportId}/team/{teamId}/history", ms.GetTeamHistoryImagesByTeam)
 
 	// SuperAdmin only routes
 	r.Group(func(r chi.Router) {
