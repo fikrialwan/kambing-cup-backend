@@ -89,10 +89,14 @@ func (s *MatchService) SyncToFirebase(ctx context.Context, sportID int) error {
 		}
 
 		canEdit := curr.HomeID == nil || curr.AwayID == nil
+		nextMatchId := ""
+		if curr.RoundID > 1 {
+			nextMatchId = strconv.Itoa(curr.RoundID / 10)
+		}
 		fbMatch := FirebaseMatch{
 			MatchId:     curr.ID,
 			Name:        curr.Round + " - Match ",
-			NextMatchId: "",
+			NextMatchId: nextMatchId,
 			Participants: []*FirebaseParticipant{
 				nil,
 				{
@@ -341,6 +345,34 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 			go func() {
 				s.SyncToFirebase(context.Background(), nextMatch.SportID)
 			}()
+		}
+
+		// Update loser match for semifinals
+		var loserID *int
+		if existingMatch.HomeID != nil && *existingMatch.WinnerID == *existingMatch.HomeID {
+			loserID = existingMatch.AwayID
+		} else if existingMatch.AwayID != nil && *existingMatch.WinnerID == *existingMatch.AwayID {
+			loserID = existingMatch.HomeID
+		}
+
+		if loserID != nil {
+			allMatches, err := s.matchRepo.GetBySportID(r.Context(), existingMatch.SportID)
+			if err == nil {
+				for _, m := range allMatches {
+					if m.RoundID == 2 { // 3rd place match
+						if existingMatch.RoundID%10 == 1 {
+							m.HomeID = loserID
+						} else {
+							m.AwayID = loserID
+						}
+						s.matchRepo.Update(r.Context(), m)
+						go func() {
+							s.SyncToFirebase(context.Background(), m.SportID)
+						}()
+						break
+					}
+				}
+			}
 		}
 	}
 
