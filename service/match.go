@@ -304,9 +304,6 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 
 				imageUrl := fmt.Sprintf("/storage/match/%s", fileName)
 				existingMatch.ImageUrl = &imageUrl
-			} else {
-				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchImageRequired, "Image is required when starting match")
-				return
 			}
 		}
 	} else if existingMatch.State == model.LIVE {
