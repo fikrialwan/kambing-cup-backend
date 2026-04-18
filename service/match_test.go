@@ -220,13 +220,16 @@ func TestMatchService_Update(t *testing.T) {
 		mockMatchRepo.AssertExpectations(t)
 	})
 
-	t.Run("Fail SOON to LIVE without Image", func(t *testing.T) {
+	t.Run("Success SOON to LIVE without Image", func(t *testing.T) {
 		mockMatchRepo := new(MockMatchRepository)
 		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil, nil)
 
 		id := 1
 		existingMatch := model.Match{ID: id, State: model.SOON}
 		mockMatchRepo.On("GetByID", mock.Anything, id).Return(existingMatch, nil)
+		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
+			return m.State == model.LIVE && m.ImageUrl == nil
+		})).Return(nil)
 
 		body := new(bytes.Buffer)
 		writer := multipart.NewWriter(body)
@@ -242,10 +245,10 @@ func TestMatchService_Update(t *testing.T) {
 
 		svc.Update(w, req)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusOK, w.Code)
 		var resp helper.Response
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.Equal(t, "305", resp.ErrorCode)
+		assert.True(t, resp.Success)
 	})
 
 	t.Run("Success LIVE to DONE", func(t *testing.T) {
