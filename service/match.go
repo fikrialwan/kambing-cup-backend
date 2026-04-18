@@ -264,47 +264,45 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if newState == model.LIVE {
+			existingMatch.State = model.LIVE
 			file, handler, err := r.FormFile("image")
-			if err != nil {
-				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchImageRequired, "Image is required when starting match")
-				return
-			}
-			defer file.Close()
+			if err == nil {
+				defer file.Close()
 
-			if !helper.IsImage(handler) {
-				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
-				return
-			}
-
-			if !helper.ValidateImageSize(handler, 2*1024*1024) {
-				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Image size must be less than 2MB")
-				return
-			}
-
-			var fileReader io.Reader = file
-			fileName := fmt.Sprintf("match-%d-%d%s", existingMatch.ID, time.Now().UnixNano(), filepath.Ext(handler.Filename))
-
-			if helper.IsHEIC(handler) {
-				jpegData, err := helper.ConvertHEICToJPEG(file)
-				if err != nil {
-					helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, "Error converting HEIC to JPEG")
+				if !helper.IsImage(handler) {
+					helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
 					return
 				}
-				fileReader = bytes.NewReader(jpegData)
-				fileName = fmt.Sprintf("match-%d-%d.jpg", existingMatch.ID, time.Now().UnixNano())
+
+				if !helper.ValidateImageSize(handler, 2*1024*1024) {
+					helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Image size must be less than 2MB")
+					return
+				}
+
+				var fileReader io.Reader = file
+				fileName := fmt.Sprintf("match-%d-%d%s", existingMatch.ID, time.Now().UnixNano(), filepath.Ext(handler.Filename))
+
+				if helper.IsHEIC(handler) {
+					jpegData, err := helper.ConvertHEICToJPEG(file)
+					if err != nil {
+						helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, "Error converting HEIC to JPEG")
+						return
+					}
+					fileReader = bytes.NewReader(jpegData)
+					fileName = fmt.Sprintf("match-%d-%d.jpg", existingMatch.ID, time.Now().UnixNano())
+				}
+
+				matchDir := filepath.Join(".", "storage", "match")
+				helper.CheckDirectory(matchDir)
+
+				if err := helper.UploadFile(fileReader, matchDir, fileName); err != nil {
+					helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
+					return
+				}
+
+				imageUrl := fmt.Sprintf("/storage/match/%s", fileName)
+				existingMatch.ImageUrl = &imageUrl
 			}
-
-			matchDir := filepath.Join(".", "storage", "match")
-			helper.CheckDirectory(matchDir)
-
-			if err := helper.UploadFile(fileReader, matchDir, fileName); err != nil {
-				helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
-				return
-			}
-
-			imageUrl := fmt.Sprintf("/storage/match/%s", fileName)
-			existingMatch.ImageUrl = &imageUrl
-			existingMatch.State = model.LIVE
 		}
 	} else if existingMatch.State == model.LIVE {
 		if newState != "" && newState != model.LIVE && newState != model.DONE {
