@@ -1,27 +1,26 @@
 # Stage 1: Build
 FROM golang:1.24-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache git ca-certificates
+# Install build dependencies (build-base is required for CGO)
+RUN apk add --no-cache git ca-certificates build-base
 
 WORKDIR /app
 
-# 1. Cache dependencies (speeds up GitHub Action builds)
+# 1. Cache dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
 # 2. Copy source code and migrations
 COPY . .
 
-# 3. Build optimized static binary
-# -ldflags="-s -w" reduces binary size by ~25%
-# CGO_ENABLED=0 ensures the binary runs on the slim Alpine image
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o main ./main.go
+# 3. Build static binary with CGO enabled
+# We keep CGO_ENABLED=1 because goheif requires it
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w -linkmode external -extldflags '-static'" -o main ./main.go
 
 # Stage 2: Runtime (Production Image)
 FROM alpine:3.19  
 
-# Security: Install CA certs for HTTPS/Postgres connections
+# Security: Install CA certs and tzdata
 RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /root/
