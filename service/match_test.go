@@ -149,6 +149,7 @@ func TestMatchService_Generate(t *testing.T) {
 		mockTournamentRepo.On("GetByID", mock.Anything, 1).Return(model.Tournament{ID: 1, Slug: "agi-15"}, nil)
 
 		mockMatchRepo.On("Create", mock.Anything, mock.AnythingOfType("model.Match")).Return(nil)
+		mockMatchRepo.On("GetBySportID", mock.Anything, 1).Return([]model.Match{}, nil)
 
 		// Firebase mocks
 		mockFirebase.On("NewRef", "agi-15/sports/futsal/matches").Return(mockFirebaseRef)
@@ -286,6 +287,93 @@ func TestMatchService_Update(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		mockMatchRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success SUPERADMIN update DONE match", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		mockSportRepo := new(MockSportRepository)
+		mockTeamRepo := new(MockTeamRepository)
+		mockTournamentRepo := new(MockTournamentRepository)
+		svc := service.NewMatchService(mockMatchRepo, mockSportRepo, mockTeamRepo, mockTournamentRepo, nil)
+
+		id := 1
+		newWinnerID := 20
+		existingMatch := model.Match{
+			ID:          id,
+			State:       model.DONE,
+			SportID:     1,
+			HomeID:      helper.IntPtr(10),
+			AwayID:      helper.IntPtr(20),
+			WinnerID:    helper.IntPtr(10),
+			RoundID:     11,
+			NextRoundID: helper.IntPtr(2),
+		}
+		mockMatchRepo.On("GetByID", mock.Anything, id).Return(existingMatch, nil)
+		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
+			return m.State == model.DONE && m.WinnerID != nil && *m.WinnerID == newWinnerID
+		})).Return(nil)
+
+		// Next round update mocks
+		nextMatch := model.Match{ID: 2, SportID: 1}
+		mockMatchRepo.On("GetByID", mock.Anything, 2).Return(nextMatch, nil)
+		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
+			return m.ID == 2 && m.HomeID != nil && *m.HomeID == newWinnerID
+		})).Return(nil)
+
+		// Loser update mocks
+		mockMatchRepo.On("GetBySportID", mock.Anything, 1).Return([]model.Match{
+			{ID: 3, RoundID: 2, SportID: 1}, // 3rd place match
+		}, nil)
+		mockMatchRepo.On("Update", mock.Anything, mock.MatchedBy(func(m model.Match) bool {
+			return m.RoundID == 2 && m.HomeID != nil && *m.HomeID == 10 // Original winner becomes loser
+		})).Return(nil)
+
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		writer.WriteField("winner_id", strconv.Itoa(newWinnerID))
+		writer.Close()
+
+		req := httptest.NewRequest("PUT", "/match/1", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req.Header.Set("x-user-role", "SUPERADMIN")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+
+		svc.Update(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockMatchRepo.AssertExpectations(t)
+	})
+
+	t.Run("Fail update DONE match as non-SUPERADMIN", func(t *testing.T) {
+		mockMatchRepo := new(MockMatchRepository)
+		svc := service.NewMatchService(mockMatchRepo, nil, nil, nil, nil)
+
+		id := 1
+		existingMatch := model.Match{ID: id, State: model.DONE}
+		mockMatchRepo.On("GetByID", mock.Anything, id).Return(existingMatch, nil)
+
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		writer.WriteField("state", "DONE")
+		writer.Close()
+
+		req := httptest.NewRequest("PUT", "/match/1", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req.Header.Set("x-user-role", "ADMIN")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		w := httptest.NewRecorder()
+
+		svc.Update(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		var resp helper.Response
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.Equal(t, helper.ErrMatchInvalidStateTransition, resp.ErrorCode)
 	})
 }
 

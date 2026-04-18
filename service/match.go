@@ -231,8 +231,10 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	role := r.Header.Get("x-user-role")
+
 	// State transition logic
-	if existingMatch.State == model.DONE {
+	if existingMatch.State == model.DONE && role != "SUPERADMIN" {
 		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchInvalidStateTransition, "Cannot update match that is already DONE")
 		return
 	}
@@ -302,6 +304,9 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 
 				imageUrl := fmt.Sprintf("/storage/match/%s", fileName)
 				existingMatch.ImageUrl = &imageUrl
+			} else {
+				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchImageRequired, "Image is required when starting match")
+				return
 			}
 		}
 	} else if existingMatch.State == model.LIVE {
@@ -333,7 +338,42 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 		if awayScore != "" {
 			existingMatch.AwayScore = &awayScore
 		}
+	} else if existingMatch.State == model.DONE && role == "SUPERADMIN" {
+		if newState != "" {
+			existingMatch.State = newState
+		}
+
+		winnerIDStr := r.FormValue("winner_id")
+		if winnerIDStr != "" {
+			winnerID, err := strconv.Atoi(winnerIDStr)
+			if err == nil {
+				existingMatch.WinnerID = &winnerID
+			}
+		}
+
+		homeScore := r.FormValue("home_score")
+		awayScore := r.FormValue("away_score")
+		if homeScore != "" {
+			existingMatch.HomeScore = &homeScore
+		}
+		if awayScore != "" {
+			existingMatch.AwayScore = &awayScore
+		}
+
+		if r.FormValue("home_id") != "" {
+			homeID, err := strconv.Atoi(r.FormValue("home_id"))
+			if err == nil {
+				existingMatch.HomeID = &homeID
+			}
+		}
+		if r.FormValue("away_id") != "" {
+			awayID, err := strconv.Atoi(r.FormValue("away_id"))
+			if err == nil {
+				existingMatch.AwayID = &awayID
+			}
+		}
 	}
+
 
 	// Update the match
 	if err := s.matchRepo.Update(r.Context(), existingMatch); err != nil {
