@@ -1,10 +1,12 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"kambing-cup-backend/helper"
 	"kambing-cup-backend/model"
 	"kambing-cup-backend/repository"
@@ -267,6 +269,7 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrMatchImageRequired, "Image is required when starting match")
 				return
 			}
+			defer file.Close()
 
 			if !helper.IsImage(handler) {
 				helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
@@ -278,11 +281,23 @@ func (s *MatchService) Update(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			var fileReader io.Reader = file
 			fileName := fmt.Sprintf("match-%d-%d%s", existingMatch.ID, time.Now().UnixNano(), filepath.Ext(handler.Filename))
+
+			if helper.IsHEIC(handler) {
+				jpegData, err := helper.ConvertHEICToJPEG(file)
+				if err != nil {
+					helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, "Error converting HEIC to JPEG")
+					return
+				}
+				fileReader = bytes.NewReader(jpegData)
+				fileName = fmt.Sprintf("match-%d-%d.jpg", existingMatch.ID, time.Now().UnixNano())
+			}
+
 			matchDir := filepath.Join(".", "storage", "match")
 			helper.CheckDirectory(matchDir)
 
-			if err := helper.UploadFile(&file, matchDir, fileName); err != nil {
+			if err := helper.UploadFile(fileReader, matchDir, fileName); err != nil {
 				helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 				return
 			}

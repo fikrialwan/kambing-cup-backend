@@ -17,6 +17,8 @@ func TestIsImage(t *testing.T) {
 	}{
 		{"image/jpeg", true},
 		{"image/png", true},
+		{"image/heic", true},
+		{"image/heif", true},
 		{"application/pdf", false},
 		{"text/plain", false},
 		{"", false},
@@ -29,7 +31,30 @@ func TestIsImage(t *testing.T) {
 			Header: header,
 		}
 		result := helper.IsImage(fileHeader)
-		assert.Equal(t, test.expected, result)
+		assert.Equal(t, test.expected, result, "Content-Type: %s", test.contentType)
+	}
+}
+
+func TestIsHEIC(t *testing.T) {
+	tests := []struct {
+		contentType string
+		expected    bool
+	}{
+		{"image/heic", true},
+		{"image/heif", true},
+		{"image/jpeg", false},
+		{"image/png", false},
+		{"", false},
+	}
+
+	for _, test := range tests {
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Type", test.contentType)
+		fileHeader := &multipart.FileHeader{
+			Header: header,
+		}
+		result := helper.IsHEIC(fileHeader)
+		assert.Equal(t, test.expected, result, "Content-Type: %s", test.contentType)
 	}
 }
 

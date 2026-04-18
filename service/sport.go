@@ -166,6 +166,7 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 
 	file, handler, err := r.FormFile("image")
 	if err == nil {
+		defer file.Close()
 		if !helper.IsImage(handler) {
 			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
 			return
@@ -181,7 +182,7 @@ func (s *SportService) Create(w http.ResponseWriter, r *http.Request) {
 		sportDir := filepath.Join(s.storagePath, "storage", "sport")
 		helper.CheckDirectory(sportDir)
 
-		if err := helper.UploadFile(&file, sportDir, fileName); err != nil {
+		if err := helper.UploadFile(file, sportDir, fileName); err != nil {
 			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
@@ -258,6 +259,7 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 
 	file, handler, err := r.FormFile("image")
 	if err == nil {
+		defer file.Close()
 		if !helper.IsImage(handler) {
 			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
 			return
@@ -273,7 +275,7 @@ func (s *SportService) Update(w http.ResponseWriter, r *http.Request) {
 		sportDir := filepath.Join(s.storagePath, "storage", "sport")
 		helper.CheckDirectory(sportDir)
 
-		if err := helper.UploadFile(&file, sportDir, fileName); err != nil {
+		if err := helper.UploadFile(file, sportDir, fileName); err != nil {
 			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}

@@ -126,6 +126,7 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrTournamentImageRequired, "Image is required")
 		return
 	}
+	defer file.Close()
 
 	if !helper.IsImage(handler) {
 		helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
@@ -142,7 +143,7 @@ func (s *TournamentService) Create(w http.ResponseWriter, r *http.Request) {
 	tournamentDir := filepath.Join(s.storagePath, "storage", "tournament")
 	helper.CheckDirectory(tournamentDir)
 
-	if err := helper.UploadFile(&file, tournamentDir, fileName); err != nil {
+	if err := helper.UploadFile(file, tournamentDir, fileName); err != nil {
 		helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 		return
 	}
@@ -227,6 +228,7 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 	fileName := ""
 
 	if file != nil {
+		defer file.Close()
 		if !helper.IsImage(handler) {
 			helper.WriteResponse(w, http.StatusBadRequest, false, nil, helper.ErrBadRequest, "Invalid image format")
 			return
@@ -242,7 +244,7 @@ func (s *TournamentService) Update(w http.ResponseWriter, r *http.Request) {
 		tournamentDir := filepath.Join(s.storagePath, "storage", "tournament")
 		helper.CheckDirectory(tournamentDir)
 
-		if err := helper.UploadFile(&file, tournamentDir, fileName); err != nil {
+		if err := helper.UploadFile(file, tournamentDir, fileName); err != nil {
 			helper.WriteResponse(w, http.StatusInternalServerError, false, nil, helper.ErrInternalServer, http.StatusText(http.StatusInternalServerError))
 			return
 		}
